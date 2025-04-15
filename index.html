@@ -16,6 +16,9 @@
                     <svg id="crown-icon" viewBox="0 0 24 24" fill="#FFCC00" width="24px" height="24px"><path d="M12 1L9 8l-7 1 5 5-1 7 6-3 6 3-1-7 5-5-7-1z"/></svg>
                     <span id="score">0</span>
                 </div>
+                <div id="combo-counter-display" style="display: none; margin-left: 10px; font-size: 1.2em; font-weight: 500; color: var(--tg-theme-button-color);">
+                    Combo x<span id="combo-count">0</span>
+                </div>
                 <div id="high-score-board">
                     🏆 <span id="high-score">0</span>
                 </div>
@@ -53,6 +56,7 @@
             </div>
             <button id="modal-share-settings">Поделиться результатом</button>
             <button id="modal-new-game">Новая игра</button>
+            <button id="modal-show-leaderboard">Показать лидеров чата</button>
             <button id="modal-continue">Продолжить</button>
         </div>
     </div>
@@ -67,6 +71,17 @@
             <button id="modal-share-over">Поделиться</button>
         </div>
     </div>
+
+    <!-- Раздел для таблицы лидеров (скрыт по умолчанию) -->
+    <div id="leaderboard-container" style="display: none; width: 90%; max-width: 400px; margin-top: 20px;">
+        <h3>Лидеры чата</h3>
+        <ul id="leaderboard-list">
+            <!-- Сюда будут добавляться лидеры -->
+            <li>Загрузка...</li>
+        </ul>
+        <button id="close-leaderboard">Закрыть</button>
+    </div>
+    <!-- Конец раздела таблицы лидеров -->
 
     <script src="script.js"></script>
 </body>
