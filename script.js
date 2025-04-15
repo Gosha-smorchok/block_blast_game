@@ -1081,13 +1081,22 @@ function handleShareClick() {
     try {
         if (window.Telegram?.WebApp) {
             const botUsername = 'BlockBlastRu_bot'; // Имя вашего бота
+            const gameUrl = `https://t.me/${botUsername}`; // Ссылка на вашего бота/игру
             const shareText = `Я набрал ${score} очков в Block Blast! Мой рекорд: ${highScore}.
 
-Попробуй побить!
-Играть: t.me/${botUsername}`;
+Попробуй побить!`;
 
-            window.Telegram.WebApp.switchInlineQuery(shareText);
-            console.log('Sharing via switchInlineQuery with text:', shareText);
+            // Кодируем текст и URL для подстановки в ссылку
+            const encodedText = encodeURIComponent(shareText);
+            const encodedUrl = encodeURIComponent(gameUrl);
+
+            // Формируем ссылку для шаринга
+            const shareUrl = `https://t.me/share/url?url=${encodedUrl}&text=${encodedText}`;
+
+            // Открываем ссылку через Telegram API
+            window.Telegram.WebApp.openTelegramLink(shareUrl);
+            
+            console.log('Opened Telegram share link:', shareUrl);
             triggerHapticFeedback('light'); // Небольшая вибрация при вызове
         } else {
             console.warn('Telegram WebApp API not available for sharing.');
