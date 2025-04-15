@@ -57,6 +57,10 @@ let touchTargetBlockIndex = -1;
 let isVibrationEnabled = true; // По умолчанию вибрация включена
 let gridRectCache = null; // <<-- Кеш геометрии сетки
 let isDraggingOverGrid = false; // <<-- Флаг, что тащим над сеткой
+let dragStartTimer = null; // <<-- Таймер для задержки начала перетаскивания
+const DRAG_START_DELAY = 250; // ms - задержка для начала перетаскивания
+const DRAG_MOVE_THRESHOLD = 5; // pixels - порог движения для отмены tap
+let isDragging = false; // <<-- Флаг, что идет именно перетаскивание
 
 // --- Элементы DOM ---
 let gameContainer;
@@ -342,16 +346,33 @@ function newGame() {
 // --- Обработчики событий ---
 
 function handleDragStart(event) {
-    const blockIndex = parseInt(event.target.closest('.block-preview').dataset.blockIndex);
-    selectedBlock = {...currentBlocks[blockIndex], index: blockIndex};
+    const blockPreview = event.target.closest('.block-preview');
+    if (!blockPreview) return;
     
-    if (!selectedBlock) return;
+    const blockIndex = parseInt(blockPreview.dataset.blockIndex);
+    // Используем || {} для случая если currentBlocks[blockIndex] === null
+    selectedBlock = {...(currentBlocks[blockIndex] || {}), index: blockIndex};
+    
+    if (!selectedBlock || !selectedBlock.type) {
+        event.preventDefault(); // Предотвращаем начало перетаскивания, если блок невалиден
+        return;
+    }
 
-    // Сохраняем индекс блока
     event.dataTransfer.setData('text/plain', blockIndex.toString());
     event.dataTransfer.effectAllowed = 'move';
     
+    // --- Попытка центрировать drag image ---
+    const dragImage = blockPreview.querySelector('div'); // Получаем мини-сетку
+    if (dragImage) {
+        const rect = blockPreview.getBoundingClientRect(); // Используем размеры превью-контейнера
+        const offsetX = rect.width / 2;
+        const offsetY = rect.height / 2;
+        event.dataTransfer.setDragImage(dragImage, offsetX, offsetY);
+    }
+    // --- Конец центрирования ---
+
     console.log("Начали тащить блок:", selectedBlock.type);
+    updateGridRectCache(); // Обновляем кеш сетки при начале перетаскивания мышью
 }
 
 function handleDragOver(event) {
@@ -672,68 +693,142 @@ window.addEventListener('resize', () => {
 // --- Touch Event Handlers --- 
 
 function handleTouchStart(event) {
-    // Игнорируем, если касание не одним пальцем
-    if (event.touches.length !== 1) return;
-    // Предотвращаем прокрутку страницы во время перетаскивания блока
-    event.preventDefault();
+    // Игнорируем, если касание не одним пальцем или таймер уже запущен
+    if (event.touches.length !== 1 || dragStartTimer) return;
+    // Убираем preventDefault отсюда, чтобы клик по кнопкам работал
+    // event.preventDefault(); 
 
     const touch = event.touches[0];
-    const blockPreview = event.currentTarget; // Это .block-preview
+    const blockPreview = event.currentTarget; 
     touchTargetBlockIndex = parseInt(blockPreview.dataset.blockIndex);
-    selectedBlock = {...currentBlocks[touchTargetBlockIndex], index: touchTargetBlockIndex};
+    
+    // --- Сразу выбираем блок (логика как в handleClickBlock) ---
+    if (selectedBlock?.index === touchTargetBlockIndex) {
+        // Повторный тап - отмена выбора (не будем делать, т.к. может помешать вращению)
+        // selectedBlock = null;
+        // document.querySelectorAll('.block-preview').forEach(p => p.classList.remove('selected-block'));
+        // Вместо отмены просто обновим данные на случай вращения
+        selectedBlock = {...(currentBlocks[touchTargetBlockIndex] || {}), index: touchTargetBlockIndex};
+    } else {
+        // Выбираем новый блок
+        selectedBlock = {...(currentBlocks[touchTargetBlockIndex] || {}), index: touchTargetBlockIndex};
+        // Обновляем визуальное выделение
+        document.querySelectorAll('.block-preview').forEach(p => p.classList.remove('selected-block'));
+        if (blockPreview && currentBlocks[touchTargetBlockIndex]) {
+             blockPreview.classList.add('selected-block');
+        }
+    }
+    // --- Конец выбора блока ---
 
-    if (!selectedBlock) return;
+    if (!selectedBlock || !selectedBlock.type) return; // Если блок невалиден
 
-    // Создаем визуальный клон блока для перетаскивания
+    touchStartX = touch.clientX;
+    touchStartY = touch.clientY;
+    isDragging = false; // Сбрасываем флаг перетаскивания
+
+    // Запускаем таймер на начало перетаскивания
+    dragStartTimer = setTimeout(() => {
+        console.log("Drag timer fired - starting drag");
+        startDrag(touch); // Начинаем перетаскивание, передаем событие touch
+        dragStartTimer = null; // Сбрасываем таймер
+    }, DRAG_START_DELAY);
+
+    // Добавляем временные обработчики для отслеживания движения или отпускания
+    document.addEventListener('touchmove', handleInitialTouchMove, { passive: false });
+    document.addEventListener('touchend', handleInitialTouchEnd);
+    document.addEventListener('touchcancel', handleInitialTouchEnd);
+
+    console.log("Touch Start - block selected:", selectedBlock.type);
+}
+
+// Временный обработчик движения: если сдвинули палец до таймера - начать drag
+function handleInitialTouchMove(event) {
+    if (!selectedBlock || event.touches.length !== 1) return;
+    event.preventDefault(); // Предотвращаем прокрутку, если начали двигать
+
+    const touch = event.touches[0];
+    const dx = touch.clientX - touchStartX;
+    const dy = touch.clientY - touchStartY;
+
+    // Проверяем порог движения
+    if (Math.sqrt(dx*dx + dy*dy) > DRAG_MOVE_THRESHOLD) {
+        console.log("Movement threshold exceeded - starting drag early");
+        // Отменяем таймер (если он еще не сработал)
+        if (dragStartTimer) {
+            clearTimeout(dragStartTimer);
+            dragStartTimer = null;
+        }
+        // Начинаем перетаскивание
+        startDrag(touch); 
+    }
+}
+
+// Временный обработчик отпускания: если отпустили до таймера - это был tap
+function handleInitialTouchEnd(event) {
+     console.log("Initial touch end/cancel");
+    // Отменяем таймер (если он еще не сработал и не был отменен движением)
+    if (dragStartTimer) {
+        clearTimeout(dragStartTimer);
+        dragStartTimer = null;
+        console.log("Drag timer cancelled - it was a tap.");
+        // Блок уже выбран в handleTouchStart, ничего больше делать не нужно
+    }
+    // Удаляем временные обработчики в любом случае
+    removeInitialTouchListeners();
+}
+
+// Функция для удаления временных обработчиков
+function removeInitialTouchListeners() {
+    document.removeEventListener('touchmove', handleInitialTouchMove);
+    document.removeEventListener('touchend', handleInitialTouchEnd);
+    document.removeEventListener('touchcancel', handleInitialTouchEnd);
+}
+
+// Функция для инициации перетаскивания
+function startDrag(touch) {
+    // Удаляем временные обработчики, если они еще есть
+    removeInitialTouchListeners(); 
+    // Если перетаскивание уже начато, выходим
+    if (isDragging || !selectedBlock) return;
+    
+    isDragging = true;
+    console.log("Starting drag logic for:", selectedBlock.type);
+
+    // Создаем и позиционируем клон
     if (!draggingElement) {
+        // ... (код создания draggingElement, получение размеров) ...
         draggingElement = document.createElement('div');
         draggingElement.id = 'dragging-block';
-        const previewGrid = blockPreview.querySelector('div'); 
+        const blockPreview = document.querySelector(`.block-preview[data-block-index='${selectedBlock.index}']`);
+        const previewGrid = blockPreview?.querySelector('div'); 
         if (previewGrid) {
             draggingElement.appendChild(previewGrid.cloneNode(true));
         } else {
-            // Запасной вариант, если не нашли сетку
             draggingElement.style.width = '60px';
             draggingElement.style.height = '60px';
             draggingElement.style.backgroundColor = selectedBlock.color;
         }
         document.body.appendChild(draggingElement);
-        
-        // <<-- Получаем и сохраняем размеры ПОСЛЕ добавления в DOM
         const rect = draggingElement.getBoundingClientRect();
         draggingElementWidth = rect.width;
         draggingElementHeight = rect.height;
     }
-
-    // Начальные координаты касания
-    touchStartX = touch.clientX;
-    touchStartY = touch.clientY;
-
-    // Позиционируем клон под пальцем
     positionDraggingElement(touch.clientX, touch.clientY);
+    updateGridRectCache();
 
-    // Добавляем обработчики движения и отпускания на весь документ
-    document.addEventListener('touchmove', handleTouchMove, { passive: false });
-    document.addEventListener('touchend', handleTouchEnd);
-    document.addEventListener('touchcancel', handleTouchEnd); // На случай отмены касания
-
-    console.log("Touch Start - тащим блок:", selectedBlock.type);
-    updateGridRectCache(); // <<-- Обновляем кеш при старте касания
+    // Добавляем ОСНОВНЫЕ обработчики перетаскивания
+    document.addEventListener('touchmove', handleDragMove, { passive: false }); // Используем новое имя для основного обработчика
+    document.addEventListener('touchend', handleDragEnd); // Используем новое имя
+    document.addEventListener('touchcancel', handleDragEnd);
 }
 
-function handleTouchMove(event) {
-    if (!draggingElement || event.touches.length !== 1) return;
-    // Предотвращаем прокрутку
+// Переименовываем основные обработчики
+function handleDragMove(event) {
+    if (!isDragging || !draggingElement || event.touches.length !== 1) return;
     event.preventDefault(); 
-
     const touch = event.touches[0];
-    
-    // Перемещаем клон блока
-    positionDraggingElement(touch.clientX, touch.clientY);
-
-    // Получаем строку/колонку под пальцем
+    positionDraggingElement(touch.clientX, touch.clientY); 
     const gridPos = getRowColFromCoords(touch.clientX, touch.clientY);
-
     if (gridPos && selectedBlock) {
         isDraggingOverGrid = true;
         highlightPlacementArea(gridPos.row, gridPos.col, selectedBlock);
@@ -743,27 +838,30 @@ function handleTouchMove(event) {
     }
 }
 
-function handleTouchEnd(event) {
-    if (!draggingElement) return;
+function handleDragEnd(event) {
+    if (!isDragging || !draggingElement) return;
+    console.log("Drag End");
 
     const lastTouch = event.changedTouches[0];
     const endX = lastTouch.clientX;
     const endY = lastTouch.clientY;
-    const gridPos = getRowColFromCoords(endX, endY); // Получаем финальную позицию
+    const gridPos = getRowColFromCoords(endX, endY); 
 
     clearHighlight();
 
-    // Используем gridPos для размещения, если он есть
-    if (gridPos && selectedBlock && touchTargetBlockIndex !== -1) {
+    if (gridPos && selectedBlock && selectedBlock.index !== undefined) { // Используем selectedBlock.index
         const row = gridPos.row;
         const col = gridPos.col;
-        const blockIndex = touchTargetBlockIndex; 
-        const blockToPlace = currentBlocks[blockIndex];
+        const blockIndex = selectedBlock.index;
+        const blockToPlace = currentBlocks[blockIndex]; // Получаем актуальный блок (мог повернуться)
 
         if (blockToPlace && isValidPlacement(row, col, blockToPlace)) {
             placeBlock(row, col, blockToPlace);
             currentBlocks[blockIndex] = null;
             handlePlacementLogic(blockIndex);
+             // Сбрасываем selectedBlock после успешного размещения
+             selectedBlock = null; 
+             document.querySelectorAll('.block-preview.selected-block').forEach(p => p.classList.remove('selected-block'));
         } 
     }
 
@@ -772,13 +870,13 @@ function handleTouchEnd(event) {
         draggingElement.remove();
         draggingElement = null;
     }
-    selectedBlock = null;
-    touchTargetBlockIndex = -1;
-
-    // Удаляем обработчики с документа
-    document.removeEventListener('touchmove', handleTouchMove);
-    document.removeEventListener('touchend', handleTouchEnd);
-    document.removeEventListener('touchcancel', handleTouchEnd);
+    isDragging = false; 
+    // selectedBlock не сбрасываем здесь, если размещение не удалось, он остается выбранным
+    
+    // Удаляем ОСНОВНЫЕ обработчики с документа
+    document.removeEventListener('touchmove', handleDragMove);
+    document.removeEventListener('touchend', handleDragEnd);
+    document.removeEventListener('touchcancel', handleDragEnd);
 }
 
 // Обновленная функция позиционирования
@@ -788,17 +886,15 @@ function positionDraggingElement(x, y) {
     const gridPos = getRowColFromCoords(x, y);
 
     if (gridPos && gridRectCache) {
-        // Snapping к сетке
-        const padding = 4 * 2; // Должно совпадать с CSS padding gridContainer
+        const padding = 4 * 2; 
         const gap = 1;
-        const snappedX = gridRectCache.left + padding / 2 + gridPos.col * (gridPos.cellSize + gap);
-        const snappedY = gridRectCache.top + padding / 2 + gridPos.row * (gridPos.cellSize + gap);
+        const cellCenterX = gridRectCache.left + padding / 2 + gridPos.col * (gridPos.cellSize + gap) + gridPos.cellSize / 2;
+        const cellCenterY = gridRectCache.top + padding / 2 + gridPos.row * (gridPos.cellSize + gap) + gridPos.cellSize / 2;
         
-        draggingElement.style.left = `${snappedX}px`;
-        draggingElement.style.top = `${snappedY}px`;
-         // Убираем центрирование, выравниваем по верхнему левому углу
+        draggingElement.style.left = `${cellCenterX - draggingElementWidth / 2}px`;
+        draggingElement.style.top = `${cellCenterY - draggingElementHeight / 2}px`;
+
     } else {
-        // Позиционируем под пальцем (как раньше, с центрированием)
         draggingElement.style.left = `${x - draggingElementWidth / 2}px`;
         draggingElement.style.top = `${y - draggingElementHeight / 2}px`;
     }
@@ -821,36 +917,31 @@ function getRowColFromCoords(clientX, clientY) {
     const relativeX = clientX - gridRectCache.left;
     const relativeY = clientY - gridRectCache.top;
     
-    // Рассчитываем размер ячейки (можно тоже кешировать)
     const gap = 1;
-    const padding = 4 * 2; // Должно совпадать с CSS padding gridContainer
+    const padding = 4 * 2;
     const availableWidth = gridRectCache.width - padding - (GRID_SIZE - 1) * gap;
     const cellSize = Math.max(10, Math.floor(availableWidth / GRID_SIZE));
     
-    if (cellSize <= 0) return null; // Невозможно рассчитать
+    if (cellSize <= 0) return null;
 
-    // Проверяем, находятся ли координаты внутри видимой области сетки (с учетом padding)
     const gridInnerLeft = gridRectCache.left + padding / 2;
     const gridInnerTop = gridRectCache.top + padding / 2;
     const gridInnerRight = gridRectCache.right - padding / 2;
     const gridInnerBottom = gridRectCache.bottom - padding / 2;
 
     if (clientX < gridInnerLeft || clientX > gridInnerRight || clientY < gridInnerTop || clientY > gridInnerBottom) {
-        return null; // Координаты вне сетки
+        return null;
     }
 
-    // Рассчитываем строку и колонку относительно внутреннего пространства сетки
     const relativeInnerX = clientX - gridInnerLeft;
     const relativeInnerY = clientY - gridInnerTop;
     
-    const targetCol = Math.floor(relativeInnerX / (cellSize + gap)); // Учитываем gap между ячейками
+    const targetCol = Math.floor(relativeInnerX / (cellSize + gap));
     const targetRow = Math.floor(relativeInnerY / (cellSize + gap));
 
-    // Ограничиваем значения границами сетки
     const col = Math.max(0, Math.min(GRID_SIZE - 1, targetCol));
     const row = Math.max(0, Math.min(GRID_SIZE - 1, targetRow));
 
-    // console.log(`Coords: ${clientX},${clientY} -> Rel: ${relativeX},${relativeY} -> CellSize: ${cellSize} -> Row: ${row}, Col: ${col}`);
     return { row, col, cellSize };
 }
 
@@ -859,20 +950,17 @@ function handlePlacementLogic(placedBlockIndex) {
     
     renderGrid(); 
     renderNextBlocks(); 
-    triggerHapticFeedback('light'); // <<-- Вибрация при размещении
+    triggerHapticFeedback('light');
 
     const clearedCellsCoords = clearLines();
 
     const runPostPlacementChecks = () => {
-        // Проверка на необходимость генерации новых блоков
         if (currentBlocks.every(b => b === null)) {
             console.log("All blocks placed, generating new ones.");
             generateNextBlocks();
         }
-        // Проверка на конец игры (после возможной генерации новых блоков)
         if (isGameOver()) {
              console.log("Game Over check returned true.");
-             // Используем setTimeout для alert, чтобы он не блокировал рендеринг
              setTimeout(() => {
                   alert(`Игра окончена! Ваш счёт: ${score}`);
              }, 50); 
@@ -882,7 +970,7 @@ function handlePlacementLogic(placedBlockIndex) {
     };
 
     if (clearedCellsCoords.length > 0) {
-        triggerHapticFeedback('medium'); // <<-- Вибрация при очистке линий (перед анимацией)
+        triggerHapticFeedback('medium');
         console.log(`Starting clearing animation for ${clearedCellsCoords.length} cells.`);
         clearedCellsCoords.forEach(coord => {
             const cellElement = gridContainer.querySelector(`[data-row='${coord.r}'][data-col='${coord.c}']`);
@@ -906,7 +994,7 @@ function handlePlacementLogic(placedBlockIndex) {
 
 // --- Вспомогательная функция для вибрации ---
 function triggerHapticFeedback(type) {
-    if (!isVibrationEnabled) return; // Проверяем настройку
+    if (!isVibrationEnabled) return;
 
     try {
         if (window.Telegram?.WebApp?.HapticFeedback) {
@@ -933,11 +1021,14 @@ function triggerHapticFeedback(type) {
                 default:
                     console.warn('Unknown haptic type:', type);
             }
-            console.log('Haptic feedback triggered:', type); // Отладка
+            console.log('Haptic feedback triggered:', type);
         } else {
-            // console.log('Haptic feedback not available.'); // Можно раскомментировать для отладки в браузере
+            // console.log('Haptic feedback not available.'); 
         }
     } catch (error) {
         console.error('Error triggering haptic feedback:', error);
     }
-} 
+}
+
+
+// ... остальные функции ...
