@@ -137,9 +137,10 @@ body {
     display: flex;
     justify-content: center;
     align-items: center;
-    background-color: transparent;
+    background-color: rgba(0, 0, 0, 0.03); /* Легкий фон для выделения */
+    border-radius: 8px; /* Скругляем сам контейнер */
     cursor: grab;
-    transition: transform 0.1s ease-out;
+    transition: transform 0.1s ease-out, background-color 0.2s ease; /* Добавляем transition для фона */
     touch-action: none; /* Запрещаем стандартные touch-действия (прокрутку) */
 }
 
@@ -168,9 +169,10 @@ body {
 
 /* Выделение выбранного блока */
 .selected-block {
-    background-color: rgba(255, 255, 255, 0.1);
+    background-color: rgba(0, 0, 0, 0.08); /* Чуть темнее фон при выборе */
     border-radius: 8px;
     transform: scale(1.05); /* Немного увеличиваем */
+    box-shadow: 0 0 0 2px var(--tg-theme-button-color); /* Добавим рамку при выборе */
 }
 
 /* Стили для кнопок управления - стиль iOS */
@@ -203,8 +205,8 @@ button:hover,
 
 button:active, 
 .modal-content button:active {
-    transform: scale(0.97); /* Чуть сильнее эффект нажатия */
-    background-color: color-mix(in srgb, var(--tg-theme-button-color) 90%, black); /* Затемнение только при нажатии */
+    transform: scale(0.96); /* Слегка уменьшил scale */
+    background-color: color-mix(in srgb, var(--tg-theme-button-color) 85%, black); /* Немного темнее при нажатии */
 }
 
 /* Стили для подсветки */
@@ -276,33 +278,61 @@ button:active,
     width: 100%;
     height: 100%;
     overflow: auto; /* Прокрутка, если контент не влезает */
-    background-color: rgba(0, 0, 0, 0.6); /* Полупрозрачный черный фон */
+    background-color: rgba(0, 0, 0, 0.5); /* Уменьшил прозрачность фона */
     justify-content: center;
     align-items: center;
+    opacity: 0; /* Начальная прозрачность для анимации */
+    transition: opacity 0.25s ease-in-out; /* Плавное появление/исчезновение */
 }
 
 .modal.active {
     display: flex; /* Показываем при добавлении класса active */
+    opacity: 1; /* Делаем видимым */
 }
 
 .modal-content {
     background-color: var(--tg-theme-bg-color); /* Фон модалки как основной */
-    padding: 20px;
+    padding: 25px; /* Увеличил padding */
     border-radius: 14px; /* Стандартное скругление iOS для алертов */
     box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15); /* Тень iOS */
     margin: auto;
-    width: 80%;
-    max-width: 300px; /* Макс ширина */
+    width: 85%; /* Чуть шире */
+    max-width: 320px; /* Макс ширина */
     text-align: center;
     color: var(--tg-theme-text-color);
     display: flex;
     flex-direction: column;
-    gap: 15px;
+    gap: 18px; /* Увеличил gap */
+    transform: scale(0.95); /* Начальный масштаб для анимации */
+    transition: transform 0.25s ease-in-out; /* Плавное появление */
+}
+
+.modal.active .modal-content {
+    transform: scale(1); /* Возвращаем нормальный масштаб при активации */
 }
 
 .modal-content h2 {
     margin-top: 0;
-    margin-bottom: 10px;
+    margin-bottom: 5px; /* Уменьшил отступ */
+    font-size: 1.4em;
+}
+
+/* Стили для текста счета и рекорда в Game Over модалке */
+#game-over-score,
+#game-over-highscore {
+    font-size: 1.1em;
+    margin: 0;
+}
+
+#game-over-score span,
+#game-over-highscore span {
+    font-weight: 600;
+    color: var(--tg-theme-button-color);
+}
+
+#game-over-highscore.new-record {
+    color: #FF9500; /* Оранжевый цвет для сообщения о новом рекорде */
+    font-weight: 600;
 }
 
 /* Кнопки внутри модального окна */
