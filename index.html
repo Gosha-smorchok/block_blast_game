@@ -11,9 +11,14 @@
 <body>
     <div id="game-container">
         <div id="header">
-            <div id="score-board">
-                <svg id="crown-icon" viewBox="0 0 24 24" fill="#FFCC00" width="24px" height="24px"><path d="M12 1L9 8l-7 1 5 5-1 7 6-3 6 3-1-7 5-5-7-1z"/></svg>
-                <span id="score">0</span>
+            <div id="score-container">
+                <div id="score-board">
+                    <svg id="crown-icon" viewBox="0 0 24 24" fill="#FFCC00" width="24px" height="24px"><path d="M12 1L9 8l-7 1 5 5-1 7 6-3 6 3-1-7 5-5-7-1z"/></svg>
+                    <span id="score">0</span>
+                </div>
+                <div id="high-score-board">
+                    🏆 <span id="high-score">0</span>
+                </div>
             </div>
             <button id="settings-button">
                 <svg viewBox="0 0 24 24" fill="#FFFFFF" width="24px" height="24px">
@@ -33,9 +38,10 @@
             <div class="block-preview"></div>
         </div>
 
-        <div id="controls" style="display: flex; gap: 15px; margin-top: 20px;">
+        <div id="controls" style="display: flex; gap: 10px; margin-top: 15px;">
             <button id="rotate-button">Вращать</button>
             <button id="new-game-button">Новая игра</button>
+            <button id="share-button">Поделиться</button>
         </div>
     </div>
 
