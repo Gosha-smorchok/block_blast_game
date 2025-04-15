@@ -44,8 +44,9 @@ body {
 
 #score-container {
     display: flex;
-    flex-direction: column; /* Счет над рекордом */
-    align-items: flex-start;
+    flex-wrap: wrap; /* Позволяем переноситься на след. строку */
+    align-items: baseline; /* Выравниваем текст счета и комбо */
+    gap: 0 15px; /* Отступ между счетом/комбо и рекордом */
 }
 
 #score-board {
@@ -108,7 +109,7 @@ body {
     background-color: var(--cell-bg-color);
     border: none; 
     border-radius: 8px; 
-    transition: background-color 0.2s ease; 
+    transition: background-color 0.1s ease; /* Изменено с 0.2s */
 }
 
 .grid-cell.occupied {
@@ -192,7 +193,7 @@ button,
     color: #ffffff; 
     border: none;
     border-radius: 10px; 
-    transition: background-color 0.2s ease, transform 0.1s ease;
+    transition: background-color 0.1s ease, transform 0.1s ease; /* Изменено background-color с 0.2s */
     text-align: center;
     line-height: 1.2; /* Для лучшего вертикального центрирования */
 }
@@ -407,4 +408,64 @@ button:active,
 
 .setting-item input[type="checkbox"]:checked::before {
     transform: translateX(16px);
-} 
+}
+
+/* Стили для таблицы лидеров */
+#leaderboard-container {
+    background-color: var(--grid-bg-color);
+    padding: 15px;
+    border-radius: 12px;
+    box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+    text-align: center;
+}
+
+#leaderboard-list {
+    list-style: none;
+    padding: 0;
+    margin: 10px 0;
+    max-height: 200px; /* Ограничиваем высоту */
+    overflow-y: auto; /* Добавляем прокрутку при необходимости */
+    text-align: left;
+}
+
+#leaderboard-list li {
+    padding: 5px 10px;
+    border-bottom: 1px solid var(--cell-border-color);
+    display: flex;
+    justify-content: space-between;
+}
+#leaderboard-list li:last-child {
+    border-bottom: none;
+}
+#leaderboard-list .player-name { /* Идентификатор пользователя */
+    font-weight: 500;
+    font-size: 0.9em;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    max-width: 70%; /* Ограничиваем ширину ID */
+}
+#leaderboard-list .player-score {
+    font-weight: 600;
+    color: var(--tg-theme-button-color);
+}
+
+#leaderboard-container button {
+    margin-top: 10px; /* Отступ для кнопки Закрыть */
+}
+/* Конец стилей для таблицы лидеров */
+
+/* <<< НАЧАЛО: Стили для счетчика комбо >>> */
+#combo-counter-display {
+    /* Стили в основном уже заданы inline, но можно добавить transition */
+    transition: opacity 0.3s ease, transform 0.3s ease;
+    opacity: 0;
+    transform: scale(0.8);
+}
+
+#combo-counter-display.visible {
+    display: inline-block; /* Или flex, если нужно */
+    opacity: 1;
+    transform: scale(1);
+}
+/* <<< КОНЕЦ: Стили для счетчика комбо >>> */ 
