@@ -74,6 +74,14 @@ let newGameButton;
 let vibrationToggle; // Добавляем элемент чекбокса
 let shareButton; // <<-- Добавляем кнопку Поделиться
 
+// --- Переменные для модальных окон ---
+let settingsModal;
+let gameOverModal;
+let gameOverScoreElement;
+let gameOverHighScoreElement;
+let modalNewGameOverButton;
+let modalShareOverButton;
+
 // Инициализация после загрузки DOM
 document.addEventListener('DOMContentLoaded', function() {
     gameContainer = document.getElementById('game-container');
@@ -83,46 +91,71 @@ document.addEventListener('DOMContentLoaded', function() {
     rotateButton = document.getElementById('rotate-button');
     newGameButton = document.getElementById('new-game-button');
     const settingsButton = document.getElementById('settings-button');
-    const settingsModal = document.getElementById('settings-modal'); // Получаем модальное окно
+    settingsModal = document.getElementById('settings-modal'); // <<-- Получаем модальное окно настроек
     const modalNewGameButton = document.getElementById('modal-new-game');
     const modalContinueButton = document.getElementById('modal-continue');
     vibrationToggle = document.getElementById('vibration-toggle'); // Получаем чекбокс
     highScoreDisplay = document.getElementById('high-score-board'); // <<-- Получаем элемент рекорда
     shareButton = document.getElementById('share-button'); // <<-- Получаем кнопку Поделиться
 
+    // --- Получаем элементы модального окна Game Over ---
+    gameOverModal = document.getElementById('game-over-modal');
+    gameOverScoreElement = document.getElementById('game-over-score');
+    gameOverHighScoreElement = document.getElementById('game-over-highscore');
+    modalNewGameOverButton = document.getElementById('modal-new-game-over');
+    modalShareOverButton = document.getElementById('modal-share-over');
+    // --- Конец получения элементов ---
+
     if(settingsButton && settingsModal) {
-        settingsButton.addEventListener('click', () => { 
-            settingsModal.classList.add('active'); // Показываем окно
+        settingsButton.addEventListener('click', () => {
+            settingsModal.classList.add('active'); // Показываем окно настроек
         });
     }
 
-    // Функция закрытия модального окна
-    function closeModal() {
-        if (settingsModal) {
-            settingsModal.classList.remove('active');
+    // Функция закрытия модального окна (обобщенная)
+    function closeModal(modalElement) {
+        if (modalElement) {
+            modalElement.classList.remove('active');
         }
     }
 
     if (modalNewGameButton) {
         modalNewGameButton.addEventListener('click', () => {
-            closeModal(); // Закрываем окно
+            closeModal(settingsModal); // Закрываем окно настроек
             newGame(); // Начинаем новую игру
         });
     }
 
     if (modalContinueButton) {
-        modalContinueButton.addEventListener('click', closeModal); // Просто закрываем окно
+        modalContinueButton.addEventListener('click', () => closeModal(settingsModal)); // Закрываем окно настроек
     }
 
-    // Закрытие модального окна по клику вне его области
-    if (settingsModal) {
-        settingsModal.addEventListener('click', (event) => {
-            if (event.target === settingsModal) { // Клик был по фону (самому .modal)
-                closeModal();
-            }
+    // Закрытие модальных окон по клику вне их области
+    [settingsModal, gameOverModal].forEach(modal => {
+        if (modal) {
+            modal.addEventListener('click', (event) => {
+                if (event.target === modal) { // Клик был по фону
+                    closeModal(modal);
+                }
+            });
+        }
+    });
+
+    // --- Обработчики для кнопок в Game Over модалке ---
+    if (modalNewGameOverButton) {
+        modalNewGameOverButton.addEventListener('click', () => {
+            closeModal(gameOverModal); // Закрываем окно Game Over
+            newGame(); // Начинаем новую игру
         });
     }
-    
+    if (modalShareOverButton) {
+        modalShareOverButton.addEventListener('click', () => {
+            handleShareClick(); // Вызываем существующую функцию шаринга
+            // Окно Game Over не закрываем, чтобы пользователь мог вернуться
+        });
+    }
+    // --- Конец обработчиков для Game Over модалки ---
+
     // Назначение обработчиков
     gridContainer.addEventListener('dragover', handleDragOver);
     gridContainer.addEventListener('drop', handleDrop);
@@ -380,17 +413,43 @@ function handleDragStart(event) {
     event.dataTransfer.setData('text/plain', blockIndex.toString());
     event.dataTransfer.effectAllowed = 'move';
     
-    // --- Попытка центрировать drag image ---
+    // --- Центрирование drag image по центру фигуры блока ---
     const dragImage = blockPreview.querySelector('div'); // Получаем мини-сетку
-    if (dragImage) {
-        const rect = blockPreview.getBoundingClientRect(); // Используем размеры превью-контейнера
-        const offsetX = rect.width / 2;
-        const offsetY = rect.height / 2;
-        event.dataTransfer.setDragImage(dragImage, offsetX, offsetY);
+    if (dragImage && selectedBlock.cells) {
+        // Находим границы фигуры блока в превью (размер ячейки превью 15px, gap 1px)
+        const cellSize = 15;
+        const gap = 1;
+        let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
+
+        selectedBlock.cells.forEach(cell => {
+            const cellX = cell[1] * (cellSize + gap);
+            const cellY = cell[0] * (cellSize + gap);
+            minX = Math.min(minX, cellX);
+            minY = Math.min(minY, cellY);
+            maxX = Math.max(maxX, cellX + cellSize);
+            maxY = Math.max(maxY, cellY + cellSize);
+        });
+
+        if (minX <= maxX) { // Убедимся, что блок не пустой
+            const blockWidth = maxX - minX;
+            const blockHeight = maxY - minY;
+            const offsetX = minX + blockWidth / 2;
+            const offsetY = minY + blockHeight / 2;
+            event.dataTransfer.setDragImage(dragImage, offsetX, offsetY);
+        } else {
+            // Фоллбэк: используем центр превью-контейнера
+            const rect = blockPreview.getBoundingClientRect();
+            event.dataTransfer.setDragImage(dragImage, rect.width / 2, rect.height / 2);
+        }
+
+    } else {
+        // Фоллбэк, если что-то пошло не так
+        const rect = blockPreview.getBoundingClientRect();
+        event.dataTransfer.setDragImage(blockPreview, rect.width / 2, rect.height / 2);
     }
     // --- Конец центрирования ---
 
-    console.log("Начали тащить блок:", selectedBlock.type);
+    console.log("Начали тащить блок (mouse):", selectedBlock.type);
     updateGridRectCache(); // Обновляем кеш сетки при начале перетаскивания мышью
 }
 
@@ -815,11 +874,10 @@ function startDrag(touch) {
 
     // Создаем и позиционируем клон
     if (!draggingElement) {
-        // ... (код создания draggingElement, получение размеров) ...
         draggingElement = document.createElement('div');
         draggingElement.id = 'dragging-block';
         const blockPreview = document.querySelector(`.block-preview[data-block-index='${selectedBlock.index}']`);
-        const previewGrid = blockPreview?.querySelector('div'); 
+        const previewGrid = blockPreview?.querySelector('div');
         if (previewGrid) {
             draggingElement.appendChild(previewGrid.cloneNode(true));
         } else {
@@ -828,9 +886,33 @@ function startDrag(touch) {
             draggingElement.style.backgroundColor = selectedBlock.color;
         }
         document.body.appendChild(draggingElement);
+        // --- Получаем размеры и вычисляем центр фигуры для тач-клона ---
         const rect = draggingElement.getBoundingClientRect();
         draggingElementWidth = rect.width;
         draggingElementHeight = rect.height;
+        // Вычисляем центр фигуры аналогично handleDragStart (для touch)
+        let figureOffsetX = draggingElementWidth / 2;
+        let figureOffsetY = draggingElementHeight / 2;
+        if (selectedBlock.cells) {
+            const cellSize = 15;
+            const gap = 1;
+            let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
+            selectedBlock.cells.forEach(cell => {
+                const cellX = cell[1] * (cellSize + gap);
+                const cellY = cell[0] * (cellSize + gap);
+                minX = Math.min(minX, cellX);
+                minY = Math.min(minY, cellY);
+                maxX = Math.max(maxX, cellX + cellSize);
+                maxY = Math.max(maxY, cellY + cellSize);
+            });
+            if (minX <= maxX) {
+                figureOffsetX = minX + (maxX - minX) / 2;
+                figureOffsetY = minY + (maxY - minY) / 2;
+            }
+        }
+        draggingElement.dataset.figureOffsetX = figureOffsetX; // Сохраняем смещение
+        draggingElement.dataset.figureOffsetY = figureOffsetY;
+        // --- Конец вычисления центра фигуры ---
     }
     positionDraggingElement(touch.clientX, touch.clientY);
     updateGridRectCache();
@@ -902,20 +984,26 @@ function handleDragEnd(event) {
 function positionDraggingElement(x, y) {
     if (!draggingElement) return;
 
+    // Получаем смещение центра фигуры из dataset
+    const figureOffsetX = parseFloat(draggingElement.dataset.figureOffsetX) || (draggingElementWidth / 2);
+    const figureOffsetY = parseFloat(draggingElement.dataset.figureOffsetY) || (draggingElementHeight / 2);
+
     const gridPos = getRowColFromCoords(x, y);
 
-    if (gridPos && gridRectCache) {
-        const padding = 4 * 2; 
-        const gap = 1;
+    if (gridPos && gridRectCache && isDraggingOverGrid) { // Позиционируем по центру ячейки, только если над сеткой
+        const padding = 5 * 2; // Обновляем padding из CSS (5px)
+        const gap = 2;       // Обновляем gap из CSS (2px)
         const cellCenterX = gridRectCache.left + padding / 2 + gridPos.col * (gridPos.cellSize + gap) + gridPos.cellSize / 2;
         const cellCenterY = gridRectCache.top + padding / 2 + gridPos.row * (gridPos.cellSize + gap) + gridPos.cellSize / 2;
-        
-        draggingElement.style.left = `${cellCenterX - draggingElementWidth / 2}px`;
-        draggingElement.style.top = `${cellCenterY - draggingElementHeight / 2}px`;
+
+        // Позиционируем так, чтобы центр фигуры совпадал с центром ячейки
+        draggingElement.style.left = `${cellCenterX - figureOffsetX}px`;
+        draggingElement.style.top = `${cellCenterY - figureOffsetY}px`;
 
     } else {
-        draggingElement.style.left = `${x - draggingElementWidth / 2}px`;
-        draggingElement.style.top = `${y - draggingElementHeight / 2}px`;
+        // Позиционируем так, чтобы центр фигуры совпадал с точкой касания/курсора
+        draggingElement.style.left = `${x - figureOffsetX}px`;
+        draggingElement.style.top = `${y - figureOffsetY}px`;
     }
 }
 
@@ -936,8 +1024,8 @@ function getRowColFromCoords(clientX, clientY) {
     const relativeX = clientX - gridRectCache.left;
     const relativeY = clientY - gridRectCache.top;
     
-    const gap = 1;
-    const padding = 4 * 2;
+    const gap = 2;       // Обновляем gap из CSS (2px)
+    const padding = 5 * 2; // Обновляем padding из CSS (5px)
     const availableWidth = gridRectCache.width - padding - (GRID_SIZE - 1) * gap;
     const cellSize = Math.max(10, Math.floor(availableWidth / GRID_SIZE));
     
@@ -991,16 +1079,8 @@ function handlePlacementLogic(placedBlockIndex) {
                  isNewHighScore = true;
              }
              // --- Конец проверки и сохранения рекорда ---
-             setTimeout(() => {
-                  // Формируем сообщение
-                  let gameOverMessage = `Игра окончена! Ваш счёт: ${score}.`;
-                  if (isNewHighScore) {
-                      gameOverMessage += ` Новый рекорд!`;
-                  } else {
-                      gameOverMessage += ` Рекорд: ${highScore}.`;
-                  }
-                  alert(gameOverMessage);
-             }, 50);
+             // Показываем модальное окно Game Over вместо alert
+             showGameOverModal(score, highScore, isNewHighScore);
         } else {
             console.log("Game Over check returned false.");
         }
@@ -1105,6 +1185,32 @@ function handleShareClick() {
     } catch (error) {
         console.error('Error triggering share:', error);
         alert('Не удалось поделиться результатом.');
+    }
+}
+
+// --- Новая функция для показа модального окна Game Over ---
+function showGameOverModal(finalScore, finalHighScore, isNewRecord) {
+    if (gameOverModal && gameOverScoreElement && gameOverHighScoreElement) {
+        gameOverScoreElement.innerHTML = `Ваш счёт: <span>${finalScore}</span>`;
+        gameOverHighScoreElement.innerHTML = `Рекорд: <span>${finalHighScore}</span>`;
+        gameOverHighScoreElement.classList.remove('new-record'); // Сбрасываем класс
+
+        if (isNewRecord) {
+            gameOverHighScoreElement.innerHTML = `🎉 Новый рекорд: <span>${finalHighScore}</span>!`;
+            gameOverHighScoreElement.classList.add('new-record'); // Добавляем класс для стиля
+        }
+
+        gameOverModal.classList.add('active');
+    } else {
+        console.error("Game Over modal elements not found!");
+        // Фоллбэк на alert, если модалка не найдена
+        let fallbackMessage = `Игра окончена! Ваш счёт: ${finalScore}.`;
+        if (isNewRecord) {
+             fallbackMessage += ` Новый рекорд: ${finalHighScore}!`;
+        } else {
+             fallbackMessage += ` Рекорд: ${finalHighScore}.`;
+        }
+        alert(fallbackMessage);
     }
 }
 
