@@ -62,6 +62,8 @@ const DRAG_START_DELAY = 250; // ms - задержка для начала пе�
 const DRAG_MOVE_THRESHOLD = 5; // pixels - порог движения для отмены tap
 let isDragging = false; // <<-- Флаг, что идет именно перетаскивание
 let highScore = 0; // <<-- Добавляем переменную для рекорда
+let highlightedCells = new Set(); // <<< НОВОЕ: для отслеживания подсвеченных ячеек
+let comboCounter = 0; // <<< НОВОЕ: Счетчик для комбо-цепочки
 
 // --- Элементы DOM ---
 let gameContainer;
@@ -80,6 +82,17 @@ let gameOverScoreElement;
 let gameOverHighScoreElement;
 let modalNewGameOverButton;
 let modalShareOverButton;
+
+// <<< НАЧАЛО: Добавление переменных для таблицы лидеров >>>
+let leaderboardContainer;
+let leaderboardList;
+let modalShowLeaderboardButton;
+let closeLeaderboardButton;
+// <<< КОНЕЦ: Добавление переменных для таблицы лидеров >>>
+
+// <<< НАЧАЛО: Переменная для элемента счетчика комбо >>>
+let comboCountElement;
+// <<< КОНЕЦ: Переменная для элемента счетчика комбо >>>
 
 // Инициализация после загрузки DOM
 document.addEventListener('DOMContentLoaded', function() {
@@ -103,6 +116,17 @@ document.addEventListener('DOMContentLoaded', function() {
     modalNewGameOverButton = document.getElementById('modal-new-game-over');
     modalShareOverButton = document.getElementById('modal-share-over');
     // --- Конец получения элементов ---
+
+    // <<< НАЧАЛО: Получение элементов таблицы лидеров >>>
+    leaderboardContainer = document.getElementById('leaderboard-container');
+    leaderboardList = document.getElementById('leaderboard-list');
+    modalShowLeaderboardButton = document.getElementById('modal-show-leaderboard');
+    closeLeaderboardButton = document.getElementById('close-leaderboard');
+    // <<< КОНЕЦ: Получение элементов таблицы лидеров >>>
+
+    // <<< НАЧАЛО: Получение элемента счетчика комбо >>>
+    comboCountElement = document.getElementById('combo-count');
+    // <<< КОНЕЦ: Получение элемента счетчика комбо >>>
 
     if(settingsButton && settingsModal) {
         settingsButton.addEventListener('click', () => {
@@ -163,6 +187,22 @@ document.addEventListener('DOMContentLoaded', function() {
         });
     }
     // --- Конец обработчика ---
+
+    // <<< НАЧАЛО: Обработчики для кнопок таблицы лидеров >>>
+    if (modalShowLeaderboardButton) {
+        modalShowLeaderboardButton.addEventListener('click', () => {
+            closeModal(settingsModal); // Закрываем настройки
+            loadChatLeaderboard(); // Загружаем и показываем лидеров
+        });
+    }
+    if (closeLeaderboardButton) {
+        closeLeaderboardButton.addEventListener('click', () => {
+            if (leaderboardContainer) {
+                leaderboardContainer.style.display = 'none'; // Скрываем контейнер
+            }
+        });
+    }
+    // <<< КОНЕЦ: Обработчики для кнопок таблицы лидеров >>>
 
     // Назначение обработчиков
     gridContainer.addEventListener('dragover', handleDragOver);
@@ -395,6 +435,8 @@ function newGame() {
     generateNextBlocks();
     // renderGrid(); // Уже вызван в initializeGrid или выше
     updateHighScoreDisplay(); // <<-- Обновляем отображение рекорда при новой игре
+    comboCounter = 0; // Сбрасываем счетчик комбо при новой игре
+    updateComboDisplay(); // Скрываем/обновляем отображение комбо
 }
 
 // --- Обработчики событий ---
@@ -506,32 +548,41 @@ function handleDragOver(event) {
 // Подсветка области размещения
 function highlightPlacementArea(row, col, block) {
     // Сначала убираем предыдущую подсветку
-    clearHighlight();
+    clearHighlight(); 
     
     if (!block || !block.cells) return;
     
     const isValid = isValidPlacement(row, col, block);
-    
-    // Подсвечиваем ячейки
-    block.cells.forEach(cell => {
-        const r = row + cell[0];
-        const c = col + cell[1];
-        
-        if (r >= 0 && r < GRID_SIZE && c >= 0 && c < GRID_SIZE) {
-            const cellElement = gridContainer.querySelector(`[data-row='${r}'][data-col='${c}']`);
-            if (cellElement) {
-                cellElement.classList.add(isValid ? 'highlight-valid' : 'highlight-invalid');
+
+    if (isValid) {
+        // Если место валидное, подсвечиваем цветом блока
+        block.cells.forEach(cell => {
+            const r = row + cell[0];
+            const c = col + cell[1];
+            
+            if (r >= 0 && r < GRID_SIZE && c >= 0 && c < GRID_SIZE) {
+                const cellElement = gridContainer.querySelector(`[data-row='${r}'][data-col='${c}']`);
+                if (cellElement) {
+                    // Не изменяем стиль, если ячейка уже занята (на всякий случай)
+                    if (!grid[r][c]) { 
+                        cellElement.style.backgroundColor = block.color;
+                        highlightedCells.add(cellElement); // Запоминаем ячейку
+                    }
+                }
             }
-        }
-    });
+        });
+    } else {
+        // Если место невалидное - ничего не делаем (нет подсветки)
+    }
 }
 
-// Убираем подсветку со всех ячеек
+// Убираем подсветку со всех ячеек (сбрасываем цвет запомненных ячеек)
 function clearHighlight() {
-    const cells = gridContainer.querySelectorAll('.grid-cell');
-    cells.forEach(cell => {
-        cell.classList.remove('highlight-valid', 'highlight-invalid');
+    highlightedCells.forEach(cellElement => {
+        // Сбрасываем стиль, браузер вернет значение из CSS
+        cellElement.style.backgroundColor = ''; 
     });
+    highlightedCells.clear(); // Очищаем набор
 }
 
 function handleDrop(event) {
@@ -696,10 +747,19 @@ function clearLines() {
         }
     });
 
-    console.log(`clearLines: Found ${rowsToClear.length} rows, ${colsToClear.length} cols. Clearing ${clearedCellsCoords.length} unique cells.`);
+    const rowsClearedCount = rowsToClear.length;
+    const colsClearedCount = colsToClear.length;
+    const totalLinesCleared = rowsClearedCount + colsClearedCount;
 
-    // Возвращаем массив координат очищенных ячеек
-    return clearedCellsCoords; 
+    console.log(`clearLines: Found ${rowsClearedCount} rows, ${colsClearedCount} cols. Total lines: ${totalLinesCleared}. Clearing ${clearedCellsCoords.length} unique cells.`);
+
+    // Возвращаем объект с результатами
+    return { 
+        clearedCellsCoords, 
+        rowsClearedCount, 
+        colsClearedCount, 
+        totalLinesCleared 
+    }; 
 }
 
 /** Проверка на конец игры */
@@ -762,16 +822,11 @@ function rotateSelectedBlock() {
     }
 }
 
-// Добавление стилей для подсветки
+// Добавление стилей для подсветки (ТЕПЕРЬ ТОЛЬКО ДЛЯ ВЫБРАННОГО БЛОКА)
 function addHighlightStyles() {
     const style = document.createElement('style');
     style.textContent = `
-        .highlight-valid {
-            background-color: rgba(76, 175, 80, 0.5) !important;
-        }
-        .highlight-invalid {
-            background-color: rgba(255, 87, 34, 0.5) !important;
-        }
+        /* Убраны стили для .highlight-valid и .highlight-invalid */
         .selected-block {
             box-shadow: 0 0 0 2px #fff, 0 0 0 4px #007bff;
         }
@@ -1105,8 +1160,48 @@ function handlePlacementLogic(placedBlockIndex) {
     renderNextBlocks(); 
     triggerHapticFeedback('light');
 
-    const clearedCellsCoords = clearLines();
+    const clearResult = clearLines(); // Получаем объект с результатами очистки
+    const totalLinesCleared = clearResult.totalLinesCleared;
+    const clearedCellsCoords = clearResult.clearedCellsCoords;
 
+    let pointsEarned = 0;
+    let baseScore = 0;
+    let comboBonus = 0;
+
+    if (totalLinesCleared > 0) {
+        comboCounter++; // Увеличиваем счетчик комбо
+
+        // Определение базового счета за одновременную очистку
+        switch (totalLinesCleared) {
+            case 1: baseScore = 100; break;
+            case 2: baseScore = 300; break;
+            case 3: baseScore = 500; break;
+            case 4: baseScore = 800; break;
+            default: baseScore = 800 + (totalLinesCleared - 4) * 200; // Бонус за 5+ линий
+        }
+
+        // Определение бонуса за комбо-цепочку (начиная со второго шага)
+        if (comboCounter > 1) {
+            comboBonus = (comboCounter - 1) * 50; // +50 очков за каждый шаг комбо
+            console.log(`Combo x${comboCounter}! Bonus: ${comboBonus}`);
+            // TODO: Позже можно добавить визуальное отображение комбо
+        }
+
+        pointsEarned = baseScore + comboBonus;
+        console.log(`Lines cleared: ${totalLinesCleared}. Base score: ${baseScore}. Combo bonus: ${comboBonus}. Total points: ${pointsEarned}`);
+        triggerHapticFeedback('medium');
+
+    } else {
+        // Если линии не очищены, сбрасываем счетчик комбо
+        if (comboCounter > 0) {
+             console.log("Combo chain broken.");
+        }
+        comboCounter = 0;
+    }
+
+    updateComboDisplay(); // <<< ВЫЗОВ: Обновляем отображение комбо
+
+    // Асинхронная функция для проверок после анимации или сразу
     const runPostPlacementChecks = () => {
         if (currentBlocks.every(b => b === null)) {
             console.log("All blocks placed, generating new ones.");
@@ -1145,12 +1240,13 @@ function handlePlacementLogic(placedBlockIndex) {
         setTimeout(() => {
             console.log("Clearing animation finished.");
             renderGrid(); 
-            updateScore(score + clearedCellsCoords.length * 100);
+            updateScore(score + pointsEarned);
             document.querySelectorAll('.grid-cell.clearing').forEach(cell => cell.classList.remove('clearing'));
             runPostPlacementChecks();
         }, 300);
     } else {
         console.log("No lines cleared, running checks immediately.");
+        updateScore(score + pointsEarned); // Начисляем очки (0, если ничего не очищено)
         runPostPlacementChecks();
     }
 }
@@ -1237,20 +1333,32 @@ function handleShareClick() {
 // --- Новая функция для показа модального окна Game Over ---
 function showGameOverModal(finalScore, finalHighScore, isNewRecord) {
     if (gameOverModal && gameOverScoreElement && gameOverHighScoreElement) {
-        gameOverScoreElement.innerHTML = `Ваш счёт: <span>${finalScore}</span>`;
-        gameOverHighScoreElement.innerHTML = `Рекорд: <span>${finalHighScore}</span>`;
-        gameOverHighScoreElement.classList.remove('new-record'); // Сбрасываем класс
+        gameOverScoreElement.innerHTML = `Ваш счет: <span>${finalScore}</span>`;
+        gameOverHighScoreElement.innerHTML = `Лучший счет: <span>${finalHighScore}</span>`;
+        gameOverHighScoreElement.classList.remove('new-record');
 
         if (isNewRecord) {
-            gameOverHighScoreElement.innerHTML = `🎉 Новый рекорд: <span>${finalHighScore}</span>!`;
-            gameOverHighScoreElement.classList.add('new-record'); // Добавляем класс для стиля
-        }
+            highScore = finalScore; // Update the global highScore variable
+            localStorage.setItem('blockBlastHighScore', highScore); // Save to localStorage
+            updateHighScoreDisplay(); // Update display in header
+            gameOverHighScoreElement.innerHTML = `🎉 Новый рекорд: <span>${highScore}</span> 🎉`;
+            gameOverHighScoreElement.classList.add('new-record');
+
+            // <<< ВЫЗОВ: Сохраняем новый рекорд в CloudStorage >>>
+            saveScoreToCloudStorage(highScore);
+
+        } 
+        // Опционально: Можно сохранять КАЖДЫЙ результат в CloudStorage, 
+        // если не использовать ID в ключе, а, например, timestamp,
+        // но это усложнит получение именно ЛУЧШЕГО счета каждого юзера.
+        // Пока сохраняем только лучший.
 
         gameOverModal.classList.add('active');
+        triggerHapticFeedback('heavy'); // Вибрация при конце игры
     } else {
         console.error("Game Over modal elements not found!");
         // Фоллбэк на alert, если модалка не найдена
-        let fallbackMessage = `Игра окончена! Ваш счёт: ${finalScore}.`;
+        let fallbackMessage = `Игра окончена! Ваш счет: ${finalScore}.`;
         if (isNewRecord) {
              fallbackMessage += ` Новый рекорд: ${finalHighScore}!`;
         } else {
@@ -1259,5 +1367,135 @@ function showGameOverModal(finalScore, finalHighScore, isNewRecord) {
         alert(fallbackMessage);
     }
 }
+
+// <<< НАЧАЛО: Функция сохранения рекорда в CloudStorage >>>
+function saveScoreToCloudStorage(scoreToSave) {
+    try {
+        if (window.Telegram?.WebApp?.CloudStorage && window.Telegram?.WebApp?.initDataUnsafe?.user?.id) {
+            const userId = window.Telegram.WebApp.initDataUnsafe.user.id;
+            // Используем только лучший счет пользователя для ключа
+            const key = `score_${userId}`;
+            window.Telegram.WebApp.CloudStorage.setItem(key, String(scoreToSave), (error, success) => {
+                if (error) {
+                    console.error('CloudStorage.setItem error:', error);
+                } else if (success) {
+                    console.log(`Score ${scoreToSave} saved to CloudStorage for user ${userId} with key ${key}`);
+                } else {
+                    // Иногда callback вызывается без success, но запись происходит
+                    console.log(`CloudStorage.setItem potentially saved score ${scoreToSave} for user ${userId}`);
+                }
+            });
+        } else {
+            console.warn('Telegram CloudStorage or User ID not available for saving score.');
+        }
+    } catch (e) {
+        console.error('Error in saveScoreToCloudStorage:', e);
+    }
+}
+// <<< КОНЕЦ: Функция сохранения рекорда в CloudStorage >>>
+
+// <<< НАЧАЛО: Функция загрузки и отображения таблицы лидеров >>>
+async function loadChatLeaderboard() {
+    if (!leaderboardContainer || !leaderboardList) {
+        console.error('Leaderboard elements not found.');
+        return;
+    }
+    if (!window.Telegram?.WebApp?.CloudStorage) {
+        console.warn('Telegram CloudStorage not available for leaderboard.');
+        leaderboardList.innerHTML = '<li>Функция лидеров недоступна (API CloudStorage не найден).</li>';
+        leaderboardContainer.style.display = 'block';
+        return;
+    }
+
+    leaderboardContainer.style.display = 'block';
+    leaderboardList.innerHTML = '<li><span class="player-name">Загрузка...</span></li>';
+
+    try {
+        // 1. Получаем все ключи
+        const keys = await new Promise((resolve, reject) => {
+            window.Telegram.WebApp.CloudStorage.getKeys((error, result) => {
+                if (error) return reject(new Error(`CloudStorage.getKeys error: ${error}`));
+                resolve(result || []); // Гарантируем массив
+            });
+        });
+
+        // 2. Фильтруем ключи, относящиеся к счетам
+        const scoreKeys = keys.filter(key => key.startsWith('score_'));
+
+        if (scoreKeys.length === 0) {
+             leaderboardList.innerHTML = '<li>Пока нет результатов в этом чате.</li>';
+             return;
+        }
+
+        // 3. Получаем значения по отфильтрованным ключам
+        const scoresData = await new Promise((resolve, reject) => {
+             window.Telegram.WebApp.CloudStorage.getItems(scoreKeys, (error, result) => {
+                 if (error) return reject(new Error(`CloudStorage.getItems error: ${error}`));
+                 resolve(result || {}); // Гарантируем объект
+             });
+        });
+
+        // 4. Формируем массив записей лидеров
+        const leaderboardEntries = [];
+        for (const key of scoreKeys) {
+            // Извлекаем ID пользователя из ключа
+            const userId = key.substring('score_'.length);
+            const score = parseInt(scoresData[key], 10);
+            // Добавляем только если есть ID и счет - число
+            if (userId && !isNaN(score)) {
+                // ПРИМЕЧАНИЕ: Отображаем User ID, т.к. имя получить сложно.
+                leaderboardEntries.push({ userId: `User ${userId}`, score: score });
+            }
+        }
+
+        // 5. Сортируем по убыванию счета
+        leaderboardEntries.sort((a, b) => b.score - a.score);
+
+        // 6. Отображаем таблицу лидеров
+        if (leaderboardEntries.length > 0) {
+            leaderboardList.innerHTML = leaderboardEntries.map(entry =>
+                `<li><span class="player-name" title="${entry.userId}">${entry.userId}</span> <span class="player-score">${entry.score}</span></li>`
+            ).join('');
+        } else {
+            // Если после парсинга не осталось валидных записей
+            leaderboardList.innerHTML = '<li>Не найдено валидных результатов.</li>';
+        }
+
+         // Добавляем примечание о User ID
+         const note = document.createElement('li');
+         note.style.cssText = 'border-bottom: none; display: block; text-align: center; margin-top: 10px; opacity: 0.7; font-size: 0.8em;';
+         note.innerHTML = '<small>Примечание: Отображаются идентификаторы пользователей Telegram, сохранивших свой лучший счет в этом приложении.</small>';
+         leaderboardList.appendChild(note);
+
+    } catch (error) {
+        console.error('Error loading leaderboard:', error);
+        leaderboardList.innerHTML = `<li><span class="player-name">Ошибка загрузки: ${error.message}</span></li>`;
+    }
+}
+// <<< КОНЕЦ: Функция загрузки и отображения таблицы лидеров >>>
+
+// <<< НАЧАЛО: Функция обновления отображения комбо >>>
+function updateComboDisplay() {
+    const displayElement = document.getElementById('combo-counter-display');
+    if (displayElement && comboCountElement) {
+        if (comboCounter >= 2) {
+            comboCountElement.textContent = comboCounter;
+            displayElement.classList.add('visible');
+            displayElement.style.display = 'inline-block'; // Убедимся, что display правильный
+        } else {
+            displayElement.classList.remove('visible');
+            // Даем время анимации на исчезновение перед скрытием
+            setTimeout(() => {
+                // Проверяем еще раз, вдруг комбо снова началось
+                if (comboCounter < 2) { 
+                    displayElement.style.display = 'none';
+                }
+            }, 300); // Время должно совпадать с transition в CSS
+        }
+    } else {
+        console.error("Combo display elements not found!");
+    }
+}
+// <<< КОНЕЦ: Функция обновления отображения комбо >>>
 
 // ... остальные функции ...
