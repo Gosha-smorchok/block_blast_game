@@ -70,9 +70,8 @@ let scoreDisplay;
 let highScoreDisplay; // <<-- Добавляем элемент для рекорда
 let nextBlocksPanel;
 let rotateButton;
-let newGameButton;
-let vibrationToggle; // Добавляем элемент чекбокса
-let shareButton; // <<-- Добавляем кнопку Поделиться
+let vibrationToggle;
+let modalShareSettingsButton; // <<-- Новая кнопка Поделиться в настройках
 
 // --- Переменные для модальных окон ---
 let settingsModal;
@@ -89,14 +88,13 @@ document.addEventListener('DOMContentLoaded', function() {
     scoreDisplay = document.getElementById('score');
     nextBlocksPanel = document.getElementById('next-blocks-panel');
     rotateButton = document.getElementById('rotate-button');
-    newGameButton = document.getElementById('new-game-button');
     const settingsButton = document.getElementById('settings-button');
-    settingsModal = document.getElementById('settings-modal'); // <<-- Получаем модальное окно настроек
+    settingsModal = document.getElementById('settings-modal');
     const modalNewGameButton = document.getElementById('modal-new-game');
     const modalContinueButton = document.getElementById('modal-continue');
-    vibrationToggle = document.getElementById('vibration-toggle'); // Получаем чекбокс
-    highScoreDisplay = document.getElementById('high-score-board'); // <<-- Получаем элемент рекорда
-    shareButton = document.getElementById('share-button'); // <<-- Получаем кнопку Поделиться
+    vibrationToggle = document.getElementById('vibration-toggle');
+    highScoreDisplay = document.getElementById('high-score-board');
+    modalShareSettingsButton = document.getElementById('modal-share-settings'); // <<-- Получаем новую кнопку
 
     // --- Получаем элементы модального окна Game Over ---
     gameOverModal = document.getElementById('game-over-modal');
@@ -156,19 +154,23 @@ document.addEventListener('DOMContentLoaded', function() {
     }
     // --- Конец обработчиков для Game Over модалки ---
 
+    // --- Обработчик для новой кнопки Поделиться в Настройках ---
+    if (modalShareSettingsButton) {
+        modalShareSettingsButton.addEventListener('click', () => {
+            handleShareClick(); // Вызываем существующую функцию шаринга
+            // Можно закрыть окно настроек после шаринга, или оставить открытым
+             closeModal(settingsModal);
+        });
+    }
+    // --- Конец обработчика ---
+
     // Назначение обработчиков
     gridContainer.addEventListener('dragover', handleDragOver);
     gridContainer.addEventListener('drop', handleDrop);
     gridContainer.addEventListener('click', handleGridClick);
     rotateButton?.addEventListener('click', rotateSelectedBlock);
-    newGameButton?.addEventListener('click', newGame);
     addHighlightStyles();
-    // --- Добавляем обработчик для кнопки Поделиться ---
-    if (shareButton) {
-        shareButton.addEventListener('click', handleShareClick);
-    }
-    // --- Конец добавления обработчика ---
-    
+
     // Переносим вызов newGame внутрь DOMContentLoaded после инициализации элементов
     initializeGrid();
     newGame();
@@ -453,6 +455,34 @@ function handleDragStart(event) {
     updateGridRectCache(); // Обновляем кеш сетки при начале перетаскивания мышью
 }
 
+// --- Вспомогательная функция для расчета смещения центра блока ---
+/**
+ * Вычисляет смещение визуального центра блока относительно его левого верхнего угла (в ячейках сетки).
+ * @param {object} block - Объект блока с массивом cells.
+ * @returns {{offsetRow: number, offsetCol: number}} - Смещение центра.
+ */
+function getBlockAnchorOffset(block) {
+    if (!block || !block.cells || block.cells.length === 0) {
+        return { offsetRow: 0, offsetCol: 0 };
+    }
+
+    let minR = Infinity, minC = Infinity, maxR = -Infinity, maxC = -Infinity;
+    block.cells.forEach(cell => {
+        minR = Math.min(minR, cell[0]);
+        minC = Math.min(minC, cell[1]);
+        maxR = Math.max(maxR, cell[0]);
+        maxC = Math.max(maxC, cell[1]);
+    });
+
+    // Считаем смещение от левого верхнего угла *фигуры* до ее центра
+    const offsetRow = Math.floor((maxR - minR) / 2);
+    const offsetCol = Math.floor((maxC - minC) / 2);
+
+    // Возвращаем смещение относительно ячейки [0, 0] массива cells
+    return { offsetRow: minR + offsetRow, offsetCol: minC + offsetCol };
+}
+// --- Конец вспомогательной функции ---
+
 function handleDragOver(event) {
     event.preventDefault();
     event.dataTransfer.dropEffect = 'move';
@@ -462,7 +492,11 @@ function handleDragOver(event) {
 
     if (gridPos && selectedBlock) {
         isDraggingOverGrid = true;
-        highlightPlacementArea(gridPos.row, gridPos.col, selectedBlock); 
+        // Рассчитываем точку привязки (верхний левый угол) для подсветки
+        const { offsetRow, offsetCol } = getBlockAnchorOffset(selectedBlock);
+        const anchorRow = gridPos.row - offsetRow;
+        const anchorCol = gridPos.col - offsetCol;
+        highlightPlacementArea(anchorRow, anchorCol, selectedBlock);
     } else {
         isDraggingOverGrid = false;
         clearHighlight();
@@ -503,27 +537,29 @@ function clearHighlight() {
 function handleDrop(event) {
     event.preventDefault();
     clearHighlight();
-    
+
     const blockIndex = parseInt(event.dataTransfer.getData('text/plain'));
     const gridPos = getRowColFromCoords(event.clientX, event.clientY); // Получаем позицию по курсору
 
     // Используем gridPos для размещения
-    if (gridPos && !isNaN(blockIndex)) {
-        const row = gridPos.row;
-        const col = gridPos.col;
-        const blockToPlace = currentBlocks[blockIndex]; 
+    if (gridPos && !isNaN(blockIndex) && selectedBlock) { // Добавляем проверку selectedBlock
+        // Рассчитываем точку привязки (верхний левый угол) для размещения
+        const { offsetRow, offsetCol } = getBlockAnchorOffset(selectedBlock);
+        const anchorRow = gridPos.row - offsetRow;
+        const anchorCol = gridPos.col - offsetCol;
+        const blockToPlace = currentBlocks[blockIndex]; // Берем актуальный блок
 
-        if (blockToPlace && isValidPlacement(row, col, blockToPlace)) {
-            placeBlock(row, col, blockToPlace);
-            currentBlocks[blockIndex] = null; 
-            handlePlacementLogic(blockIndex); 
+        if (blockToPlace && isValidPlacement(anchorRow, anchorCol, blockToPlace)) {
+            placeBlock(anchorRow, anchorCol, blockToPlace);
+            currentBlocks[blockIndex] = null;
+            handlePlacementLogic(blockIndex);
         } else {
-             console.log("Drop - invalid placement at snapped position");
+             console.log("Drop - invalid placement at calculated anchor position");
         }
     } else {
-        console.log("Drop - outside grid or invalid block index");
+        console.log("Drop - outside grid, invalid block index, or no block selected");
     }
-    selectedBlock = null; 
+    selectedBlock = null;
 }
 
 // Обработка клика по блоку
@@ -926,16 +962,20 @@ function startDrag(touch) {
 // Переименовываем основные обработчики
 function handleDragMove(event) {
     if (!isDragging || !draggingElement || event.touches.length !== 1) return;
-    event.preventDefault(); 
+    event.preventDefault();
     const touch = event.touches[0];
-    positionDraggingElement(touch.clientX, touch.clientY); 
+    positionDraggingElement(touch.clientX, touch.clientY);
     const gridPos = getRowColFromCoords(touch.clientX, touch.clientY);
     if (gridPos && selectedBlock) {
         isDraggingOverGrid = true;
-        highlightPlacementArea(gridPos.row, gridPos.col, selectedBlock);
+        // Рассчитываем точку привязки (верхний левый угол) для подсветки
+        const { offsetRow, offsetCol } = getBlockAnchorOffset(selectedBlock);
+        const anchorRow = gridPos.row - offsetRow;
+        const anchorCol = gridPos.col - offsetCol;
+        highlightPlacementArea(anchorRow, anchorCol, selectedBlock);
     } else {
         isDraggingOverGrid = false;
-        clearHighlight(); 
+        clearHighlight();
     }
 }
 
@@ -946,24 +986,30 @@ function handleDragEnd(event) {
     const lastTouch = event.changedTouches[0];
     const endX = lastTouch.clientX;
     const endY = lastTouch.clientY;
-    const gridPos = getRowColFromCoords(endX, endY); 
+    const gridPos = getRowColFromCoords(endX, endY);
 
     clearHighlight();
 
-    if (gridPos && selectedBlock && selectedBlock.index !== undefined) { // Используем selectedBlock.index
-        const row = gridPos.row;
-        const col = gridPos.col;
+    if (gridPos && selectedBlock && selectedBlock.index !== undefined) {
+        // Рассчитываем точку привязки (верхний левый угол) для размещения
+        const { offsetRow, offsetCol } = getBlockAnchorOffset(selectedBlock);
+        const anchorRow = gridPos.row - offsetRow;
+        const anchorCol = gridPos.col - offsetCol;
         const blockIndex = selectedBlock.index;
         const blockToPlace = currentBlocks[blockIndex]; // Получаем актуальный блок (мог повернуться)
 
-        if (blockToPlace && isValidPlacement(row, col, blockToPlace)) {
-            placeBlock(row, col, blockToPlace);
+        if (blockToPlace && isValidPlacement(anchorRow, anchorCol, blockToPlace)) {
+            placeBlock(anchorRow, anchorCol, blockToPlace);
             currentBlocks[blockIndex] = null;
             handlePlacementLogic(blockIndex);
              // Сбрасываем selectedBlock после успешного размещения
-             selectedBlock = null; 
+             selectedBlock = null;
              document.querySelectorAll('.block-preview.selected-block').forEach(p => p.classList.remove('selected-block'));
-        } 
+        } else {
+             console.log("Touch Drop - invalid placement at calculated anchor position");
+        }
+    } else {
+         console.log("Touch Drop - outside grid or no block selected");
     }
 
     // Убираем клон блока и сбрасываем состояние
