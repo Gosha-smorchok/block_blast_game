@@ -1,17 +1,20 @@
-/* Переменные темы (можно переопределить через JS из Telegram) */
+/* Переменные темы (iOS-подобные) */
 :root {
-    --tg-theme-bg-color: #1C2A3A; /* Темно-синий фон */
-    --tg-theme-text-color: #FFFFFF;
-    --tg-theme-button-color: #007AFF;
-    --grid-bg-color: #121E2B; /* Фон сетки темнее фона страницы */
-    --cell-bg-color: #2C3A4A; /* Цвет пустой клетки */
-    --cell-border-color: #121E2B; /* Цвет границы клетки (такой же как фон сетки для эффекта) */
-    --block-border-color: rgba(0, 0, 0, 0.2);
+    --tg-theme-bg-color: #f2f2f7; /* systemGray6 */
+    --tg-theme-text-color: #1c1c1e; /* Почти черный */
+    --tg-theme-button-color: #007AFF; /* Возвращаем стандартный синий iOS */
+    --grid-bg-color: #e5e5ea; /* systemGray5 */
+    --cell-bg-color: #d1d1d6; /* systemGray4 */
+    --cell-border-color: #c7c7cc; /* systemGray3 - для границ, если нужны */
+    --occupied-cell-bg-color: #e5e5ea; /* systemGray5 - тот же, что фон сетки, создаст эффект 'вырезанности' */
+    --highlight-valid-bg: rgba(52, 199, 89, 0.3); /* Менее насыщенная подсветка */
+    --highlight-invalid-bg: rgba(255, 59, 48, 0.3);
 }
 
 /* Основные стили */
 body {
     font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+    font-weight: 400; /* Стандартный вес */
     display: flex;
     justify-content: center;
     align-items: flex-start; /* Выравниваем по верху */
@@ -41,16 +44,17 @@ body {
 
 #score-board {
     font-size: 1.8em; /* Увеличил шрифт */
-    font-weight: bold;
+    font-weight: 600; /* iOS использует более жирные шрифты */
     display: flex; /* Для выравнивания иконки и текста */
     align-items: center;
     gap: 8px; /* Расстояние между иконкой и счетом */
-    color: #FFCC00; /* Цвет короны и счета */
+    color: #FF9500; /* Оставляем оранжевый акцент */
 }
 
 #crown-icon {
     width: 28px; /* Немного увеличил иконку */
     height: 28px;
+    fill: #F1C40F; /* Менее яркий желтый */
 }
 
 #settings-button {
@@ -63,8 +67,8 @@ body {
 #settings-button svg {
     width: 30px; /* Увеличил иконку настроек */
     height: 30px;
-    fill: var(--tg-theme-text-color);
-    opacity: 0.8;
+    fill: var(--tg-theme-button-color); /* Синий цвет кнопки */
+    opacity: 1;
 }
 
 #settings-button:hover svg {
@@ -74,30 +78,28 @@ body {
 /* Стили для сетки */
 #grid-container {
     display: grid;
-    /* Размер будет задан в JS, чтобы зависеть от ширины экрана */
-    /* grid-template-columns: repeat(8, 40px); */
-    /* grid-template-rows: repeat(8, 40px); */
-    gap: 1px; /* Минимальный зазор */
-    border: none; /* Убрал границу сетки */
+    gap: 2px; 
+    border: none; /* Убираем внешнюю рамку */
     background-color: var(--grid-bg-color);
-    /* width: calc(8 * 40px + 7 * 1px); */ /* Рассчитаем в JS */
-    /* height: calc(8 * 40px + 7 * 1px); */
-    padding: 4px; /* Небольшой внутренний отступ */
-    border-radius: 8px; /* Скругление углов сетки */
-    box-shadow: 0 4px 10px rgba(0, 0, 0, 0.3); /* Тень для глубины */
+    padding: 5px; 
+    border-radius: 12px; 
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1); 
 }
 
 .grid-cell {
     background-color: var(--cell-bg-color);
-    border: none; /* Убрал границу */
-    border-radius: 4px; /* Скругление углов ячейки */
-    /* Добавим стиль для занятых клеток */
+    border: none; 
+    border-radius: 8px; 
+    transition: background-color 0.2s ease; 
 }
 
 .grid-cell.occupied {
-    border: 1px solid var(--block-border-color);
-    box-shadow: inset 0 2px 2px rgba(255, 255, 255, 0.1), /* Внутренняя светлая тень сверху */
-                inset 0 -2px 2px rgba(0, 0, 0, 0.2); /* Внутренняя темная тень снизу */
+    /* Эффект 'вырезанной' ячейки или легкое изменение фона */
+    background-color: var(--occupied-cell-bg-color); 
+    /* Можно добавить тонкую внутреннюю тень вместо границы */
+    /* box-shadow: inset 0 0 0 1px rgba(0, 0, 0, 0.05); */ 
+    border: none; /* Убираем границу точно */
+    box-shadow: none;
 }
 
 /* Стили для панели следующих блоков */
@@ -120,6 +122,7 @@ body {
     background-color: transparent;
     cursor: grab;
     transition: transform 0.1s ease-out;
+    touch-action: none; /* Запрещаем стандартные touch-действия (прокрутку) */
 }
 
 .block-preview:active {
@@ -127,29 +130,22 @@ body {
     transform: scale(1.1);
 }
 
-/* Стили для мини-сетки внутри превью */
-.block-preview > div {
-    /* Убрал scale(0.8) чтобы сделать блоки крупнее */
-    /* transform: scale(0.8); */ 
-}
-
+/* Стили для мини-сетки внутри превью - делаем как occupied */
 .block-preview > div > div {
-    /* Стили для ячеек мини-сетки (cellDiv in JS) */
-    border-radius: 3px; /* Скругление */
-    border: 1px solid transparent;
+    border-radius: 6px; 
+    border: none; /* Убираем границу */
 }
 
 .block-preview > div > div[style*="background-color: transparent"] {
-     /* Скрываем пустые ячейки в превью */
      background-color: transparent !important;
      border: none;
 }
 
 .block-preview > div > div:not([style*="background-color: transparent"]) {
-    /* Добавляем эффект занятой ячейки к превью */
-    border-color: var(--block-border-color);
-    box-shadow: inset 0 1px 1px rgba(255, 255, 255, 0.1),
-                inset 0 -1px 1px rgba(0, 0, 0, 0.2);
+    /* Стиль как у occupied, но без изменения фона */
+    border: none;
+    /* Можно вернуть тень для превью, если нужно отличие */
+    /* box-shadow: inset 0 0 0 1px rgba(0,0,0,0.1); */ 
 }
 
 /* Выделение выбранного блока */
@@ -159,41 +155,69 @@ body {
     transform: scale(1.05); /* Немного увеличиваем */
 }
 
-/* Стили для кнопок управления (вращение, новая игра) */
+/* Стили для кнопок управления - стиль iOS */
 #controls {
     display: flex; /* Делаем блок видимым */
     gap: 15px;
     margin-top: 20px;
 }
 
-button {
-    padding: 12px 25px;
-    font-size: 1.1em;
+button,
+.modal-content button { 
+    padding: 12px 20px; /* Уменьшил горизонтальный padding */
+    font-size: 17px; 
+    font-weight: 600;
     cursor: pointer;
     background-color: var(--tg-theme-button-color);
-    color: var(--tg-theme-text-color);
+    color: #ffffff; 
     border: none;
-    border-radius: 8px;
-    font-weight: bold;
-    transition: background-color 0.2s ease;
+    border-radius: 10px; 
+    transition: background-color 0.2s ease, transform 0.1s ease;
+    text-align: center;
+    line-height: 1.2; /* Для лучшего вертикального центрирования */
 }
 
-button:hover {
-    /* filter: brightness(1.1); */ /* Альтернативный ховер */
-    background-color: color-mix(in srgb, var(--tg-theme-button-color) 90%, black);
+button:hover,
+.modal-content button:hover {
+    /* Убираем затемнение при ховере для чистого iOS вида */
+    /* background-color: color-mix(in srgb, var(--tg-theme-button-color) 85%, black); */
+}
+
+button:active, 
+.modal-content button:active {
+    transform: scale(0.97); /* Чуть сильнее эффект нажатия */
+    background-color: color-mix(in srgb, var(--tg-theme-button-color) 90%, black); /* Затемнение только при нажатии */
 }
 
 /* Стили для подсветки */
 .highlight-valid {
-    background-color: rgba(76, 175, 80, 0.4) !important; /* Полупрозрачный зеленый */
-    border-radius: 4px;
+    background-color: var(--highlight-valid-bg) !important; 
+    border-radius: 8px;
 }
 
 .highlight-invalid {
-    background-color: rgba(255, 87, 34, 0.4) !important; /* Полупрозрачный красный */
-    border-radius: 4px;
+    background-color: var(--highlight-invalid-bg) !important; 
+    border-radius: 8px;
 }
 
+/* Анимация очистки линии */
+@keyframes fadeOutShrink {
+    from {
+        opacity: 1;
+        transform: scale(1);
+    }
+    to {
+        opacity: 0;
+        transform: scale(0.5);
+    }
+}
+
+.grid-cell.clearing {
+    animation: fadeOutShrink 0.3s ease-out forwards;
+    /* Важно: forwards сохраняет состояние последнего кадра (прозрачность 0, масштаб 0.5) */
+    /* Цвет фона можно оставить или сделать прозрачным в анимации */
+    background-color: var(--cell-bg-color); /* Или цвет фона сетки */
+}
 
 /* Адаптивность (можно доработать) */
 @media (max-width: 400px) {
@@ -244,11 +268,11 @@ button:hover {
 }
 
 .modal-content {
-    background-color: var(--grid-bg-color); /* Фон как у сетки */
+    background-color: var(--tg-theme-bg-color); /* Фон модалки как основной */
+    padding: 20px;
+    border-radius: 14px; /* Стандартное скругление iOS для алертов */
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15); /* Тень iOS */
     margin: auto;
-    padding: 30px;
-    border-radius: 10px;
-    box-shadow: 0 5px 15px rgba(0, 0, 0, 0.4);
     width: 80%;
     max-width: 300px; /* Макс ширина */
     text-align: center;
@@ -266,4 +290,20 @@ button:hover {
 /* Кнопки внутри модального окна */
 .modal-content button {
     width: 100%;
+}
+
+/* Стиль для перетаскиваемого клона блока (touch) */
+#dragging-block {
+    position: absolute;
+    pointer-events: none; /* Не мешает другим событиям */
+    z-index: 1001; /* Поверх модального окна, если оно вдруг открыто */
+    opacity: 0.8;
+    transform-origin: center center;
+    /* Размер и содержимое будут заданы в JS */
+}
+
+#dragging-block > div > div:not([style*="background-color: transparent"]) {
+     border-radius: 6px;
+     border: none;
+     /* Тень можно убрать/добавить по вкусу */
 } 
