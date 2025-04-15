@@ -42,6 +42,12 @@ body {
     width: 100%;
 }
 
+#score-container {
+    display: flex;
+    flex-direction: column; /* Счет над рекордом */
+    align-items: flex-start;
+}
+
 #score-board {
     font-size: 1.8em; /* Увеличил шрифт */
     font-weight: 600; /* iOS использует более жирные шрифты */
@@ -49,6 +55,18 @@ body {
     align-items: center;
     gap: 8px; /* Расстояние между иконкой и счетом */
     color: #FF9500; /* Оставляем оранжевый акцент */
+}
+
+#high-score-board {
+    font-size: 0.7em; /* Меньше основного счета */
+    font-weight: 400;
+    color: var(--tg-theme-text-color); /* Стандартный цвет текста */
+    opacity: 0.7;
+    margin-top: 2px; 
+}
+
+#high-score-board span {
+    font-weight: 600; /* Сам рекорд чуть жирнее */
 }
 
 #crown-icon {
