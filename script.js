@@ -1,6 +1,6 @@
-// --- Константы ---
+// --- РљРѕРЅСЃС‚Р°РЅС‚С‹ ---
 const GRID_SIZE = 8;
-const CELL_SIZE = 40; // Совпадает с CSS
+const CELL_SIZE = 40; // РЎРѕРІРїР°РґР°РµС‚ СЃ CSS
 const blockColors = {
     'L': '#34C759',    // Green (L-shape)
     '2x2': '#007AFF', // Blue (2x2 square)
@@ -9,18 +9,18 @@ const blockColors = {
 };
 
 const blockShapes = {
-    // Координаты клеток относительно точки вставки (верхний левый угол)
+    // РљРѕРѕСЂРґРёРЅР°С‚С‹ РєР»РµС‚РѕРє РѕС‚РЅРѕСЃРёС‚РµР»СЊРЅРѕ С‚РѕС‡РєРё РІСЃС‚Р°РІРєРё (РІРµСЂС…РЅРёР№ Р»РµРІС‹Р№ СѓРіРѕР»)
     '3x3': { 
         color: blockColors['3x3'], 
         cells: [[0,0], [0,1], [0,2], [1,0], [1,1], [1,2], [2,0], [2,1], [2,2]] 
     },
-    '2x3': { // Прямоугольник 2x3
+    '2x3': { // РџСЂСЏРјРѕСѓРіРѕР»СЊРЅРёРє 2x3
         color: blockColors['2x3'],
         rotations: [
-            [[0,0], [0,1], [0,2], [1,0], [1,1], [1,2]], // 0 градусов
-            [[0,0], [0,1], [1,0], [1,1], [2,0], [2,1]], // 90 градусов
-            [[0,0], [0,1], [0,2], [1,0], [1,1], [1,2]], // 180 градусов (как 0)
-            [[0,0], [0,1], [1,0], [1,1], [2,0], [2,1]], // 270 градусов (как 90)
+            [[0,0], [0,1], [0,2], [1,0], [1,1], [1,2]], // 0 РіСЂР°РґСѓСЃРѕРІ
+            [[0,0], [0,1], [1,0], [1,1], [2,0], [2,1]], // 90 РіСЂР°РґСѓСЃРѕРІ
+            [[0,0], [0,1], [0,2], [1,0], [1,1], [1,2]], // 180 РіСЂР°РґСѓСЃРѕРІ (РєР°Рє 0)
+            [[0,0], [0,1], [1,0], [1,1], [2,0], [2,1]], // 270 РіСЂР°РґСѓСЃРѕРІ (РєР°Рє 90)
         ],
         currentRotation: 0
     },
@@ -31,25 +31,29 @@ const blockShapes = {
     'L': {
         color: blockColors['L'],
         rotations: [
-            [[0,0], [1,0], [2,0], [2,1]], // 0 градусов
-            [[0,0], [0,1], [0,2], [1,0]], // 90 градусов
-            [[0,0], [0,1], [1,1], [2,1]], // 180 градусов
-            [[1,0], [1,1], [1,2], [0,2]], // 270 градусов
+            [[0,0], [1,0], [2,0], [2,1]], // 0 РіСЂР°РґСѓСЃРѕРІ
+            [[0,0], [0,1], [0,2], [1,0]], // 90 РіСЂР°РґСѓСЃРѕРІ
+            [[0,0], [0,1], [1,1], [2,1]], // 180 РіСЂР°РґСѓСЃРѕРІ
+            [[1,0], [1,1], [1,2], [0,2]], // 270 РіСЂР°РґСѓСЃРѕРІ
         ],
         currentRotation: 0
     }
 };
 const blockTypes = Object.keys(blockShapes);
 
-// --- Переменные состояния игры ---
-let grid = []; // Двумерный массив состояния поля (0 - пусто, 1 - занято/цвет)
+// --- РџРµСЂРµРјРµРЅРЅС‹Рµ СЃРѕСЃС‚РѕСЏРЅРёСЏ РёРіСЂС‹ ---
+let grid = []; // Р”РІСѓРјРµСЂРЅС‹Р№ РјР°СЃСЃРёРІ СЃРѕСЃС‚РѕСЏРЅРёСЏ РїРѕР»СЏ (0 - РїСѓСЃС‚Рѕ, 1 - Р·Р°РЅСЏС‚Рѕ/С†РІРµС‚)
 let score = 0;
-let currentBlocks = []; // Три текущих блока для выбора
-let selectedBlock = null; // Какой блок выбран для перетаскивания/размещения
+let currentBlocks = []; // РўСЂРё С‚РµРєСѓС‰РёС… Р±Р»РѕРєР° РґР»СЏ РІС‹Р±РѕСЂР°
+let selectedBlock = null; // РљР°РєРѕР№ Р±Р»РѕРє РІС‹Р±СЂР°РЅ РґР»СЏ РїРµСЂРµС‚Р°СЃРєРёРІР°РЅРёСЏ/СЂР°Р·РјРµС‰РµРЅРёСЏ
 let dragOffsetX = 0;
 let dragOffsetY = 0;
+let draggingElement = null; // Р­Р»РµРјРµРЅС‚, РєРѕС‚РѕСЂС‹Р№ С‚Р°С‰РёРј РїР°Р»СЊС†РµРј
+let touchStartX = 0;
+let touchStartY = 0;
+let touchTargetBlockIndex = -1;
 
-// --- Элементы DOM ---
+// --- Р­Р»РµРјРµРЅС‚С‹ DOM ---
 let gameContainer;
 let gridContainer;
 let scoreDisplay;
@@ -57,7 +61,7 @@ let nextBlocksPanel;
 let rotateButton;
 let newGameButton;
 
-// Инициализация после загрузки DOM
+// РРЅРёС†РёР°Р»РёР·Р°С†РёСЏ РїРѕСЃР»Рµ Р·Р°РіСЂСѓР·РєРё DOM
 document.addEventListener('DOMContentLoaded', function() {
     gameContainer = document.getElementById('game-container');
     gridContainer = document.getElementById('grid-container');
@@ -66,17 +70,17 @@ document.addEventListener('DOMContentLoaded', function() {
     rotateButton = document.getElementById('rotate-button');
     newGameButton = document.getElementById('new-game-button');
     const settingsButton = document.getElementById('settings-button');
-    const settingsModal = document.getElementById('settings-modal'); // Получаем модальное окно
+    const settingsModal = document.getElementById('settings-modal'); // РџРѕР»СѓС‡Р°РµРј РјРѕРґР°Р»СЊРЅРѕРµ РѕРєРЅРѕ
     const modalNewGameButton = document.getElementById('modal-new-game');
     const modalContinueButton = document.getElementById('modal-continue');
 
     if(settingsButton && settingsModal) {
         settingsButton.addEventListener('click', () => { 
-            settingsModal.classList.add('active'); // Показываем окно
+            settingsModal.classList.add('active'); // РџРѕРєР°Р·С‹РІР°РµРј РѕРєРЅРѕ
         });
     }
 
-    // Функция закрытия модального окна
+    // Р¤СѓРЅРєС†РёСЏ Р·Р°РєСЂС‹С‚РёСЏ РјРѕРґР°Р»СЊРЅРѕРіРѕ РѕРєРЅР°
     function closeModal() {
         if (settingsModal) {
             settingsModal.classList.remove('active');
@@ -85,25 +89,25 @@ document.addEventListener('DOMContentLoaded', function() {
 
     if (modalNewGameButton) {
         modalNewGameButton.addEventListener('click', () => {
-            closeModal(); // Закрываем окно
-            newGame(); // Начинаем новую игру
+            closeModal(); // Р—Р°РєСЂС‹РІР°РµРј РѕРєРЅРѕ
+            newGame(); // РќР°С‡РёРЅР°РµРј РЅРѕРІСѓСЋ РёРіСЂСѓ
         });
     }
 
     if (modalContinueButton) {
-        modalContinueButton.addEventListener('click', closeModal); // Просто закрываем окно
+        modalContinueButton.addEventListener('click', closeModal); // РџСЂРѕСЃС‚Рѕ Р·Р°РєСЂС‹РІР°РµРј РѕРєРЅРѕ
     }
 
-    // Закрытие модального окна по клику вне его области
+    // Р—Р°РєСЂС‹С‚РёРµ РјРѕРґР°Р»СЊРЅРѕРіРѕ РѕРєРЅР° РїРѕ РєР»РёРєСѓ РІРЅРµ РµРіРѕ РѕР±Р»Р°СЃС‚Рё
     if (settingsModal) {
         settingsModal.addEventListener('click', (event) => {
-            if (event.target === settingsModal) { // Клик был по фону (самому .modal)
+            if (event.target === settingsModal) { // РљР»РёРє Р±С‹Р» РїРѕ С„РѕРЅСѓ (СЃР°РјРѕРјСѓ .modal)
                 closeModal();
             }
         });
     }
     
-    // Назначение обработчиков
+    // РќР°Р·РЅР°С‡РµРЅРёРµ РѕР±СЂР°Р±РѕС‚С‡РёРєРѕРІ
     gridContainer.addEventListener('dragover', handleDragOver);
     gridContainer.addEventListener('drop', handleDrop);
     gridContainer.addEventListener('click', handleGridClick);
@@ -111,27 +115,27 @@ document.addEventListener('DOMContentLoaded', function() {
     newGameButton?.addEventListener('click', newGame);
     addHighlightStyles();
     
-    // Переносим вызов newGame внутрь DOMContentLoaded после инициализации элементов
+    // РџРµСЂРµРЅРѕСЃРёРј РІС‹Р·РѕРІ newGame РІРЅСѓС‚СЂСЊ DOMContentLoaded РїРѕСЃР»Рµ РёРЅРёС†РёР°Р»РёР·Р°С†РёРё СЌР»РµРјРµРЅС‚РѕРІ
     initializeGrid();
     newGame();
 });
 
 function calculateCellSize() {
-    if (!gameContainer || !gridContainer) return 10; // Возвращаем минимум, если элементы не найдены
+    if (!gameContainer || !gridContainer) return 10; // Р’РѕР·РІСЂР°С‰Р°РµРј РјРёРЅРёРјСѓРј, РµСЃР»Рё СЌР»РµРјРµРЅС‚С‹ РЅРµ РЅР°Р№РґРµРЅС‹
 
-    // Используем ширину внешнего контейнера
+    // РСЃРїРѕР»СЊР·СѓРµРј С€РёСЂРёРЅСѓ РІРЅРµС€РЅРµРіРѕ РєРѕРЅС‚РµР№РЅРµСЂР°
     const gameContainerWidth = gameContainer.offsetWidth; 
     
-    // Получаем вычисленные стили gridContainer для точного padding
+    // РџРѕР»СѓС‡Р°РµРј РІС‹С‡РёСЃР»РµРЅРЅС‹Рµ СЃС‚РёР»Рё gridContainer РґР»СЏ С‚РѕС‡РЅРѕРіРѕ padding
     const gridStyle = window.getComputedStyle(gridContainer);
     const gridPaddingLeft = parseFloat(gridStyle.paddingLeft) || 0;
     const gridPaddingRight = parseFloat(gridStyle.paddingRight) || 0;
     const gridTotalPadding = gridPaddingLeft + gridPaddingRight;
 
-    const gap = 1; // Соответствует gap в CSS для gridContainer
+    const gap = 1; // РЎРѕРѕС‚РІРµС‚СЃС‚РІСѓРµС‚ gap РІ CSS РґР»СЏ gridContainer
 
-    // Доступная ширина внутри padding сетки
-    // Используем gameContainerWidth, т.к. gridContainer должен занимать его ширину (за вычетом своих padding)
+    // Р”РѕСЃС‚СѓРїРЅР°СЏ С€РёСЂРёРЅР° РІРЅСѓС‚СЂРё padding СЃРµС‚РєРё
+    // РСЃРїРѕР»СЊР·СѓРµРј gameContainerWidth, С‚.Рє. gridContainer РґРѕР»Р¶РµРЅ Р·Р°РЅРёРјР°С‚СЊ РµРіРѕ С€РёСЂРёРЅСѓ (Р·Р° РІС‹С‡РµС‚РѕРј СЃРІРѕРёС… padding)
     const availableWidth = gameContainerWidth - gridTotalPadding - (GRID_SIZE - 1) * gap; 
     const cellSize = Math.max(10, Math.floor(availableWidth / GRID_SIZE));
 
@@ -144,7 +148,7 @@ function calculateCellSize() {
     return cellSize;
 }
 
-/** Инициализация или сброс игрового поля */
+/** РРЅРёС†РёР°Р»РёР·Р°С†РёСЏ РёР»Рё СЃР±СЂРѕСЃ РёРіСЂРѕРІРѕРіРѕ РїРѕР»СЏ */
 function initializeGrid() {
     grid = Array(GRID_SIZE).fill(null).map(() => Array(GRID_SIZE).fill(null));
     gridContainer.innerHTML = '';
@@ -152,7 +156,7 @@ function initializeGrid() {
 
     const cellSize = calculateCellSize();
 
-    // Применяем размеры к сетке
+    // РџСЂРёРјРµРЅСЏРµРј СЂР°Р·РјРµСЂС‹ Рє СЃРµС‚РєРµ
     gridContainer.style.gridTemplateColumns = `repeat(${GRID_SIZE}, ${cellSize}px)`;
     gridContainer.style.gridTemplateRows = `repeat(${GRID_SIZE}, ${cellSize}px)`;
 
@@ -165,11 +169,11 @@ function initializeGrid() {
             gridContainer.appendChild(cell);
         }
     }
-    // Вызываем renderGrid после создания всех ячеек
+    // Р’С‹Р·С‹РІР°РµРј renderGrid РїРѕСЃР»Рµ СЃРѕР·РґР°РЅРёСЏ РІСЃРµС… СЏС‡РµРµРє
     renderGrid(); 
 }
 
-/** Отрисовка текущего состояния сетки */
+/** РћС‚СЂРёСЃРѕРІРєР° С‚РµРєСѓС‰РµРіРѕ СЃРѕСЃС‚РѕСЏРЅРёСЏ СЃРµС‚РєРё */
 function renderGrid() {
     for (let r = 0; r < GRID_SIZE; r++) {
         for (let c = 0; c < GRID_SIZE; c++) {
@@ -185,16 +189,16 @@ function renderGrid() {
     }
 }
 
-/** Генерация случайного блока */
+/** Р“РµРЅРµСЂР°С†РёСЏ СЃР»СѓС‡Р°Р№РЅРѕРіРѕ Р±Р»РѕРєР° */
 function generateBlock() {
     const type = blockTypes[Math.floor(Math.random() * blockTypes.length)];
     const shapeInfo = blockShapes[type];
 
-    // Клонируем объект, чтобы не изменять исходные формы
+    // РљР»РѕРЅРёСЂСѓРµРј РѕР±СЉРµРєС‚, С‡С‚РѕР±С‹ РЅРµ РёР·РјРµРЅСЏС‚СЊ РёСЃС…РѕРґРЅС‹Рµ С„РѕСЂРјС‹
     const newBlock = JSON.parse(JSON.stringify(shapeInfo));
     newBlock.type = type;
 
-    // Обрабатываем вращения
+    // РћР±СЂР°Р±Р°С‚С‹РІР°РµРј РІСЂР°С‰РµРЅРёСЏ
     if (newBlock.rotations) {
         newBlock.cells = newBlock.rotations[newBlock.currentRotation];
     }
@@ -202,13 +206,13 @@ function generateBlock() {
     return newBlock;
 }
 
-/** Генерация и отображение следующих трех блоков */
+/** Р“РµРЅРµСЂР°С†РёСЏ Рё РѕС‚РѕР±СЂР°Р¶РµРЅРёРµ СЃР»РµРґСѓСЋС‰РёС… С‚СЂРµС… Р±Р»РѕРєРѕРІ */
 function generateNextBlocks() {
     currentBlocks = [generateBlock(), generateBlock(), generateBlock()];
     renderNextBlocks();
 }
 
-/** Отображение блоков в панели предпросмотра */
+/** РћС‚РѕР±СЂР°Р¶РµРЅРёРµ Р±Р»РѕРєРѕРІ РІ РїР°РЅРµР»Рё РїСЂРµРґРїСЂРѕСЃРјРѕС‚СЂР° */
 function renderNextBlocks() {
     const previews = nextBlocksPanel.querySelectorAll('.block-preview');
     
@@ -224,7 +228,7 @@ function renderNextBlocks() {
         
         preview.style.visibility = 'visible';
 
-        // Создаем мини-сетку для отображения блока
+        // РЎРѕР·РґР°РµРј РјРёРЅРё-СЃРµС‚РєСѓ РґР»СЏ РѕС‚РѕР±СЂР°Р¶РµРЅРёСЏ Р±Р»РѕРєР°
         const blockSize = Math.max(
             ...block.cells.map(cell => Math.max(cell[0], cell[1]))
         ) + 1;
@@ -235,11 +239,11 @@ function renderNextBlocks() {
         previewGrid.style.gridTemplateRows = `repeat(${blockSize}, 15px)`;
         previewGrid.style.gap = '1px';
 
-        // Создаем карту занятых ячеек
+        // РЎРѕР·РґР°РµРј РєР°СЂС‚Сѓ Р·Р°РЅСЏС‚С‹С… СЏС‡РµРµРє
         const cellsMap = {};
         block.cells.forEach(cell => cellsMap[`${cell[0]}_${cell[1]}`] = true);
 
-        // Отрисовываем мини-сетку
+        // РћС‚СЂРёСЃРѕРІС‹РІР°РµРј РјРёРЅРё-СЃРµС‚РєСѓ
         for (let r = 0; r < blockSize; r++) {
             for (let c = 0; c < blockSize; c++) {
                 const cellDiv = document.createElement('div');
@@ -258,43 +262,45 @@ function renderNextBlocks() {
         
         preview.appendChild(previewGrid);
 
-        // Добавляем обработчики событий
+        // Р”РѕР±Р°РІР»СЏРµРј РѕР±СЂР°Р±РѕС‚С‡РёРєРё СЃРѕР±С‹С‚РёР№
         preview.draggable = true;
         preview.addEventListener('dragstart', handleDragStart);
         preview.addEventListener('click', handleClickBlock);
+        // --- Р”РѕР±Р°РІР»СЏРµРј РѕР±СЂР°Р±РѕС‚С‡РёРєРё touch --- 
+        preview.addEventListener('touchstart', handleTouchStart, { passive: false }); // passive: false РґР»СЏ РїСЂРµРґРѕС‚РІСЂР°С‰РµРЅРёСЏ РїСЂРѕРєСЂСѓС‚РєРё
     });
 }
 
-/** Обновление счета */
+/** РћР±РЅРѕРІР»РµРЅРёРµ СЃС‡РµС‚Р° */
 function updateScore(newScore) {
-    console.log("Updating score to:", newScore, "Element:", scoreDisplay); // Отладка
+    console.log("Updating score to:", newScore, "Element:", scoreDisplay); // РћС‚Р»Р°РґРєР°
     score = newScore;
-    if (scoreDisplay) { // Добавим проверку на существование элемента
+    if (scoreDisplay) { // Р”РѕР±Р°РІРёРј РїСЂРѕРІРµСЂРєСѓ РЅР° СЃСѓС‰РµСЃС‚РІРѕРІР°РЅРёРµ СЌР»РµРјРµРЅС‚Р°
         scoreDisplay.textContent = score;
     } else {
         console.error("Score display element not found!");
     }
 }
 
-/** Начало новой игры */
+/** РќР°С‡Р°Р»Рѕ РЅРѕРІРѕР№ РёРіСЂС‹ */
 function newGame() {
-    // initializeGrid(); // initializeGrid теперь вызывается из redrawUI или DOMContentLoaded
+    // initializeGrid(); // initializeGrid С‚РµРїРµСЂСЊ РІС‹Р·С‹РІР°РµС‚СЃСЏ РёР· redrawUI РёР»Рё DOMContentLoaded
     updateScore(0);
-    // Инициализация сетки должна произойти перед генерацией блоков и рендерингом
-    // Если redrawUI не вызывается при первой загрузке, нужно вызвать initializeGrid здесь.
-    // Проверим, пустой ли gridContainer
+    // РРЅРёС†РёР°Р»РёР·Р°С†РёСЏ СЃРµС‚РєРё РґРѕР»Р¶РЅР° РїСЂРѕРёР·РѕР№С‚Рё РїРµСЂРµРґ РіРµРЅРµСЂР°С†РёРµР№ Р±Р»РѕРєРѕРІ Рё СЂРµРЅРґРµСЂРёРЅРіРѕРј
+    // Р•СЃР»Рё redrawUI РЅРµ РІС‹Р·С‹РІР°РµС‚СЃСЏ РїСЂРё РїРµСЂРІРѕР№ Р·Р°РіСЂСѓР·РєРµ, РЅСѓР¶РЅРѕ РІС‹Р·РІР°С‚СЊ initializeGrid Р·РґРµСЃСЊ.
+    // РџСЂРѕРІРµСЂРёРј, РїСѓСЃС‚РѕР№ Р»Рё gridContainer
     if (!gridContainer.hasChildNodes()) {
-        initializeGrid(); // Вызываем, если сетка еще не создана
+        initializeGrid(); // Р’С‹Р·С‹РІР°РµРј, РµСЃР»Рё СЃРµС‚РєР° РµС‰Рµ РЅРµ СЃРѕР·РґР°РЅР°
     } else {
-         // Если сетка уже есть, очистим её логическое представление
+         // Р•СЃР»Рё СЃРµС‚РєР° СѓР¶Рµ РµСЃС‚СЊ, РѕС‡РёСЃС‚РёРј РµС‘ Р»РѕРіРёС‡РµСЃРєРѕРµ РїСЂРµРґСЃС‚Р°РІР»РµРЅРёРµ
          grid = Array(GRID_SIZE).fill(null).map(() => Array(GRID_SIZE).fill(null));
-         renderGrid(); // Обновим отображение очищенной сетки
+         renderGrid(); // РћР±РЅРѕРІРёРј РѕС‚РѕР±СЂР°Р¶РµРЅРёРµ РѕС‡РёС‰РµРЅРЅРѕР№ СЃРµС‚РєРё
     }
     generateNextBlocks();
-    // renderGrid(); // Уже вызван в initializeGrid или выше
+    // renderGrid(); // РЈР¶Рµ РІС‹Р·РІР°РЅ РІ initializeGrid РёР»Рё РІС‹С€Рµ
 }
 
-// --- Обработчики событий ---
+// --- РћР±СЂР°Р±РѕС‚С‡РёРєРё СЃРѕР±С‹С‚РёР№ ---
 
 function handleDragStart(event) {
     const blockIndex = parseInt(event.target.closest('.block-preview').dataset.blockIndex);
@@ -302,18 +308,18 @@ function handleDragStart(event) {
     
     if (!selectedBlock) return;
 
-    // Сохраняем индекс блока
+    // РЎРѕС…СЂР°РЅСЏРµРј РёРЅРґРµРєСЃ Р±Р»РѕРєР°
     event.dataTransfer.setData('text/plain', blockIndex.toString());
     event.dataTransfer.effectAllowed = 'move';
     
-    console.log("Начали тащить блок:", selectedBlock.type);
+    console.log("РќР°С‡Р°Р»Рё С‚Р°С‰РёС‚СЊ Р±Р»РѕРє:", selectedBlock.type);
 }
 
 function handleDragOver(event) {
     event.preventDefault();
     event.dataTransfer.dropEffect = 'move';
 
-    // Подсветка ячеек
+    // РџРѕРґСЃРІРµС‚РєР° СЏС‡РµРµРє
     const cell = event.target.closest('.grid-cell');
     if (cell && selectedBlock) {
         highlightPlacementArea(
@@ -324,16 +330,16 @@ function handleDragOver(event) {
     }
 }
 
-// Подсветка области размещения
+// РџРѕРґСЃРІРµС‚РєР° РѕР±Р»Р°СЃС‚Рё СЂР°Р·РјРµС‰РµРЅРёСЏ
 function highlightPlacementArea(row, col, block) {
-    // Сначала убираем предыдущую подсветку
+    // РЎРЅР°С‡Р°Р»Р° СѓР±РёСЂР°РµРј РїСЂРµРґС‹РґСѓС‰СѓСЋ РїРѕРґСЃРІРµС‚РєСѓ
     clearHighlight();
     
     if (!block || !block.cells) return;
     
     const isValid = isValidPlacement(row, col, block);
     
-    // Подсвечиваем ячейки
+    // РџРѕРґСЃРІРµС‡РёРІР°РµРј СЏС‡РµР№РєРё
     block.cells.forEach(cell => {
         const r = row + cell[0];
         const c = col + cell[1];
@@ -347,7 +353,7 @@ function highlightPlacementArea(row, col, block) {
     });
 }
 
-// Убираем подсветку со всех ячеек
+// РЈР±РёСЂР°РµРј РїРѕРґСЃРІРµС‚РєСѓ СЃРѕ РІСЃРµС… СЏС‡РµРµРє
 function clearHighlight() {
     const cells = gridContainer.querySelectorAll('.grid-cell');
     cells.forEach(cell => {
@@ -373,24 +379,24 @@ function handleDrop(event) {
             renderGrid();
             renderNextBlocks();
 
-            // Проверка и очистка линий
+            // РџСЂРѕРІРµСЂРєР° Рё РѕС‡РёСЃС‚РєР° Р»РёРЅРёР№
             const linesCleared = clearLines();
             if (linesCleared > 0) {
-                // Сначала перерисовываем сетку после очистки
+                // РЎРЅР°С‡Р°Р»Р° РїРµСЂРµСЂРёСЃРѕРІС‹РІР°РµРј СЃРµС‚РєСѓ РїРѕСЃР»Рµ РѕС‡РёСЃС‚РєРё
                 renderGrid(); 
-                // Затем обновляем счет
+                // Р—Р°С‚РµРј РѕР±РЅРѕРІР»СЏРµРј СЃС‡РµС‚
                 updateScore(score + linesCleared * 100); 
             }
 
-            // Проверка на необходимость генерации новых блоков
+            // РџСЂРѕРІРµСЂРєР° РЅР° РЅРµРѕР±С…РѕРґРёРјРѕСЃС‚СЊ РіРµРЅРµСЂР°С†РёРё РЅРѕРІС‹С… Р±Р»РѕРєРѕРІ
             if (currentBlocks.every(b => b === null)) {
                 generateNextBlocks();
             }
 
-            // Проверка на конец игры
+            // РџСЂРѕРІРµСЂРєР° РЅР° РєРѕРЅРµС† РёРіСЂС‹
             if (isGameOver()) {
                 setTimeout(() => {
-                    alert(`Игра окончена! Ваш счёт: ${score}`);
+                    alert(`РРіСЂР° РѕРєРѕРЅС‡РµРЅР°! Р’Р°С€ СЃС‡С‘С‚: ${score}`);
                 }, 300);
             }
         }
@@ -399,12 +405,12 @@ function handleDrop(event) {
     selectedBlock = null;
 }
 
-// Обработка клика по блоку
+// РћР±СЂР°Р±РѕС‚РєР° РєР»РёРєР° РїРѕ Р±Р»РѕРєСѓ
 function handleClickBlock(event) {
     const blockPreview = event.currentTarget;
     const blockIndex = parseInt(blockPreview.dataset.blockIndex);
     
-    // Если мы уже выбрали этот блок, отменяем выбор
+    // Р•СЃР»Рё РјС‹ СѓР¶Рµ РІС‹Р±СЂР°Р»Рё СЌС‚РѕС‚ Р±Р»РѕРє, РѕС‚РјРµРЅСЏРµРј РІС‹Р±РѕСЂ
     if (selectedBlock?.index === blockIndex) {
         selectedBlock = null;
         document.querySelectorAll('.block-preview').forEach(p => 
@@ -412,16 +418,16 @@ function handleClickBlock(event) {
         return;
     }
     
-    // Выбираем новый блок
+    // Р’С‹Р±РёСЂР°РµРј РЅРѕРІС‹Р№ Р±Р»РѕРє
     selectedBlock = {...currentBlocks[blockIndex], index: blockIndex};
     
-    // Обновляем визуальное выделение
+    // РћР±РЅРѕРІР»СЏРµРј РІРёР·СѓР°Р»СЊРЅРѕРµ РІС‹РґРµР»РµРЅРёРµ
     document.querySelectorAll('.block-preview').forEach(p => 
         p.classList.remove('selected-block'));
     blockPreview.classList.add('selected-block');
 }
 
-// Обработка клика по сетке
+// РћР±СЂР°Р±РѕС‚РєР° РєР»РёРєР° РїРѕ СЃРµС‚РєРµ
 function handleGridClick(event) {
     const cell = event.target.closest('.grid-cell');
     if (cell && selectedBlock) {
@@ -440,9 +446,9 @@ function handleGridClick(event) {
 
             const linesCleared = clearLines();
             if (linesCleared > 0) {
-                 // Сначала перерисовываем сетку после очистки
+                 // РЎРЅР°С‡Р°Р»Р° РїРµСЂРµСЂРёСЃРѕРІС‹РІР°РµРј СЃРµС‚РєСѓ РїРѕСЃР»Рµ РѕС‡РёСЃС‚РєРё
                 renderGrid();
-                // Затем обновляем счет
+                // Р—Р°С‚РµРј РѕР±РЅРѕРІР»СЏРµРј СЃС‡РµС‚
                 updateScore(score + linesCleared * 100);
             }
 
@@ -452,7 +458,7 @@ function handleGridClick(event) {
             
             if (isGameOver()) {
                 setTimeout(() => {
-                    alert(`Игра окончена! Ваш счёт: ${score}`);
+                    alert(`РРіСЂР° РѕРєРѕРЅС‡РµРЅР°! Р’Р°С€ СЃС‡С‘С‚: ${score}`);
                 }, 300);
             }
         }
@@ -461,7 +467,7 @@ function handleGridClick(event) {
     }
 }
 
-/** Проверка возможности размещения блока */
+/** РџСЂРѕРІРµСЂРєР° РІРѕР·РјРѕР¶РЅРѕСЃС‚Рё СЂР°Р·РјРµС‰РµРЅРёСЏ Р±Р»РѕРєР° */
 function isValidPlacement(startRow, startCol, block) {
     if (!block || !block.cells) return false;
     
@@ -469,12 +475,12 @@ function isValidPlacement(startRow, startCol, block) {
         const r = startRow + cell[0];
         const c = startCol + cell[1];
 
-        // Проверка выхода за границы
+        // РџСЂРѕРІРµСЂРєР° РІС‹С…РѕРґР° Р·Р° РіСЂР°РЅРёС†С‹
         if (r < 0 || r >= GRID_SIZE || c < 0 || c >= GRID_SIZE) {
             return false;
         }
         
-        // Проверка наложения на занятые клетки
+        // РџСЂРѕРІРµСЂРєР° РЅР°Р»РѕР¶РµРЅРёСЏ РЅР° Р·Р°РЅСЏС‚С‹Рµ РєР»РµС‚РєРё
         if (grid[r][c] !== null) {
             return false;
         }
@@ -483,7 +489,7 @@ function isValidPlacement(startRow, startCol, block) {
     return true;
 }
 
-/** Размещение блока на поле */
+/** Р Р°Р·РјРµС‰РµРЅРёРµ Р±Р»РѕРєР° РЅР° РїРѕР»Рµ */
 function placeBlock(startRow, startCol, block) {
     block.cells.forEach(cell => {
         const r = startRow + cell[0];
@@ -495,13 +501,13 @@ function placeBlock(startRow, startCol, block) {
     });
 }
 
-/** Проверка и удаление заполненных линий */
+/** РџСЂРѕРІРµСЂРєР° Рё СѓРґР°Р»РµРЅРёРµ Р·Р°РїРѕР»РЅРµРЅРЅС‹С… Р»РёРЅРёР№ */
 function clearLines() {
     let linesCleared = 0;
     let rowsToClear = [];
     let colsToClear = [];
 
-    // Проверка строк
+    // РџСЂРѕРІРµСЂРєР° СЃС‚СЂРѕРє
     for (let r = 0; r < GRID_SIZE; r++) {
         if (grid[r].every(cell => cell !== null)) {
             rowsToClear.push(r);
@@ -509,12 +515,12 @@ function clearLines() {
         }
     }
 
-    // Проверка столбцов
+    // РџСЂРѕРІРµСЂРєР° СЃС‚РѕР»Р±С†РѕРІ
     for (let c = 0; c < GRID_SIZE; c++) {
         let colFull = true;
         for (let r = 0; r < GRID_SIZE; r++) {
-            // Не считаем столбец полным, если он пересекает уже найденную полную строку
-            // чтобы избежать двойного счета очков и двойной очистки
+            // РќРµ СЃС‡РёС‚Р°РµРј СЃС‚РѕР»Р±РµС† РїРѕР»РЅС‹Рј, РµСЃР»Рё РѕРЅ РїРµСЂРµСЃРµРєР°РµС‚ СѓР¶Рµ РЅР°Р№РґРµРЅРЅСѓСЋ РїРѕР»РЅСѓСЋ СЃС‚СЂРѕРєСѓ
+            // С‡С‚РѕР±С‹ РёР·Р±РµР¶Р°С‚СЊ РґРІРѕР№РЅРѕРіРѕ СЃС‡РµС‚Р° РѕС‡РєРѕРІ Рё РґРІРѕР№РЅРѕР№ РѕС‡РёСЃС‚РєРё
             if (grid[r][c] === null || rowsToClear.includes(r)) {
                 colFull = false;
                 break;
@@ -527,47 +533,47 @@ function clearLines() {
         }
     }
 
-    // Очистка найденных строк
+    // РћС‡РёСЃС‚РєР° РЅР°Р№РґРµРЅРЅС‹С… СЃС‚СЂРѕРє
     if (rowsToClear.length > 0) {
         for (const rowIndex of rowsToClear) {
             for (let c = 0; c < GRID_SIZE; c++) {
-                grid[rowIndex][c] = null; // Просто очищаем ячейки
+                grid[rowIndex][c] = null; // РџСЂРѕСЃС‚Рѕ РѕС‡РёС‰Р°РµРј СЏС‡РµР№РєРё
             }
         }
     }
 
-    // Очистка найденных столбцов
+    // РћС‡РёСЃС‚РєР° РЅР°Р№РґРµРЅРЅС‹С… СЃС‚РѕР»Р±С†РѕРІ
     if (colsToClear.length > 0) {
         for (const colIndex of colsToClear) {
             for (let r = 0; r < GRID_SIZE; r++) {
-                // Пропускаем ячейки, которые уже были очищены как часть строки
+                // РџСЂРѕРїСѓСЃРєР°РµРј СЏС‡РµР№РєРё, РєРѕС‚РѕСЂС‹Рµ СѓР¶Рµ Р±С‹Р»Рё РѕС‡РёС‰РµРЅС‹ РєР°Рє С‡Р°СЃС‚СЊ СЃС‚СЂРѕРєРё
                 if (!rowsToClear.includes(r)) {
-                     grid[r][colIndex] = null; // Просто очищаем ячейки
+                     grid[r][colIndex] = null; // РџСЂРѕСЃС‚Рѕ РѕС‡РёС‰Р°РµРј СЏС‡РµР№РєРё
                 }
             }
         }
     }
 
-    console.log("Lines cleared in this step:", linesCleared); // Отладка
-    // Возвращаем количество очищенных линий для подсчета очков
+    console.log("Lines cleared in this step:", linesCleared); // РћС‚Р»Р°РґРєР°
+    // Р’РѕР·РІСЂР°С‰Р°РµРј РєРѕР»РёС‡РµСЃС‚РІРѕ РѕС‡РёС‰РµРЅРЅС‹С… Р»РёРЅРёР№ РґР»СЏ РїРѕРґСЃС‡РµС‚Р° РѕС‡РєРѕРІ
     return linesCleared;
 }
 
-/** Проверка на конец игры */
+/** РџСЂРѕРІРµСЂРєР° РЅР° РєРѕРЅРµС† РёРіСЂС‹ */
 function isGameOver() {
     for (const block of currentBlocks) {
         if (block === null) continue;
 
-        // Проверяем возможность размещения в любом месте поля
+        // РџСЂРѕРІРµСЂСЏРµРј РІРѕР·РјРѕР¶РЅРѕСЃС‚СЊ СЂР°Р·РјРµС‰РµРЅРёСЏ РІ Р»СЋР±РѕРј РјРµСЃС‚Рµ РїРѕР»СЏ
         for (let r = 0; r < GRID_SIZE; r++) {
             for (let c = 0; c < GRID_SIZE; c++) {
                 if (isValidPlacement(r, c, block)) {
-                    return false; // Есть куда разместить блок
+                    return false; // Р•СЃС‚СЊ РєСѓРґР° СЂР°Р·РјРµСЃС‚РёС‚СЊ Р±Р»РѕРє
                 }
             }
         }
         
-        // Если блок можно вращать, проверяем все варианты
+        // Р•СЃР»Рё Р±Р»РѕРє РјРѕР¶РЅРѕ РІСЂР°С‰Р°С‚СЊ, РїСЂРѕРІРµСЂСЏРµРј РІСЃРµ РІР°СЂРёР°РЅС‚С‹
         if (block.rotations) {
             const originalRotation = block.currentRotation;
             
@@ -582,7 +588,7 @@ function isGameOver() {
                 for (let r = 0; r < GRID_SIZE; r++) {
                     for (let c = 0; c < GRID_SIZE; c++) {
                         if (isValidPlacement(r, c, rotatedBlock)) {
-                            return false; // Можно разместить повернутый блок
+                            return false; // РњРѕР¶РЅРѕ СЂР°Р·РјРµСЃС‚РёС‚СЊ РїРѕРІРµСЂРЅСѓС‚С‹Р№ Р±Р»РѕРє
                         }
                     }
                 }
@@ -590,21 +596,21 @@ function isGameOver() {
         }
     }
     
-    // Если ни один блок нельзя разместить
+    // Р•СЃР»Рё РЅРё РѕРґРёРЅ Р±Р»РѕРє РЅРµР»СЊР·СЏ СЂР°Р·РјРµСЃС‚РёС‚СЊ
     return true;
 }
 
-/** Вращение выбранного блока */
+/** Р’СЂР°С‰РµРЅРёРµ РІС‹Р±СЂР°РЅРЅРѕРіРѕ Р±Р»РѕРєР° */
 function rotateSelectedBlock() {
     if (!selectedBlock || !selectedBlock.rotations) {
         return;
     }
 
-    // Обновляем вращение в selectedBlock
+    // РћР±РЅРѕРІР»СЏРµРј РІСЂР°С‰РµРЅРёРµ РІ selectedBlock
     selectedBlock.currentRotation = (selectedBlock.currentRotation + 1) % selectedBlock.rotations.length;
     selectedBlock.cells = selectedBlock.rotations[selectedBlock.currentRotation];
 
-    // Обновляем блок в массиве currentBlocks
+    // РћР±РЅРѕРІР»СЏРµРј Р±Р»РѕРє РІ РјР°СЃСЃРёРІРµ currentBlocks
     const blockIndex = selectedBlock.index;
     if (blockIndex !== undefined && currentBlocks[blockIndex]) {
         currentBlocks[blockIndex].currentRotation = selectedBlock.currentRotation;
@@ -613,7 +619,7 @@ function rotateSelectedBlock() {
     }
 }
 
-// Добавление стилей для подсветки
+// Р”РѕР±Р°РІР»РµРЅРёРµ СЃС‚РёР»РµР№ РґР»СЏ РїРѕРґСЃРІРµС‚РєРё
 function addHighlightStyles() {
     const style = document.createElement('style');
     style.textContent = `
@@ -630,7 +636,7 @@ function addHighlightStyles() {
     document.head.appendChild(style);
 }
 
-// Перерисовывает сетку и блоки с учетом текущих размеров
+// РџРµСЂРµСЂРёСЃРѕРІС‹РІР°РµС‚ СЃРµС‚РєСѓ Рё Р±Р»РѕРєРё СЃ СѓС‡РµС‚РѕРј С‚РµРєСѓС‰РёС… СЂР°Р·РјРµСЂРѕРІ
 function redrawUI() {
     console.log("Redrawing UI due to resize...");
     
@@ -639,15 +645,157 @@ function redrawUI() {
     gridContainer.style.gridTemplateColumns = `repeat(${GRID_SIZE}, ${cellSize}px)`;
     gridContainer.style.gridTemplateRows = `repeat(${GRID_SIZE}, ${cellSize}px)`;
 
-    // Перерисовываем сетку (сохраняя состояние)
+    // РџРµСЂРµСЂРёСЃРѕРІС‹РІР°РµРј СЃРµС‚РєСѓ (СЃРѕС…СЂР°РЅСЏСЏ СЃРѕСЃС‚РѕСЏРЅРёРµ)
     renderGrid(); 
-    // Перерисовываем превью
+    // РџРµСЂРµСЂРёСЃРѕРІС‹РІР°РµРј РїСЂРµРІСЊСЋ
     renderNextBlocks();
 }
 
-// Добавляем обработчик изменения размера окна для пересчета сетки
+// Р”РѕР±Р°РІР»СЏРµРј РѕР±СЂР°Р±РѕС‚С‡РёРє РёР·РјРµРЅРµРЅРёСЏ СЂР°Р·РјРµСЂР° РѕРєРЅР° РґР»СЏ РїРµСЂРµСЃС‡РµС‚Р° СЃРµС‚РєРё
 let resizeTimeout;
 window.addEventListener('resize', () => {
     clearTimeout(resizeTimeout);
-    resizeTimeout = setTimeout(redrawUI, 250); // Вызываем только перерисовку UI
-}); 
+    resizeTimeout = setTimeout(redrawUI, 250); // Р’С‹Р·С‹РІР°РµРј С‚РѕР»СЊРєРѕ РїРµСЂРµСЂРёСЃРѕРІРєСѓ UI
+});
+
+// --- Touch Event Handlers --- 
+
+function handleTouchStart(event) {
+    // РРіРЅРѕСЂРёСЂСѓРµРј, РµСЃР»Рё РєР°СЃР°РЅРёРµ РЅРµ РѕРґРЅРёРј РїР°Р»СЊС†РµРј
+    if (event.touches.length !== 1) return;
+    // РџСЂРµРґРѕС‚РІСЂР°С‰Р°РµРј РїСЂРѕРєСЂСѓС‚РєСѓ СЃС‚СЂР°РЅРёС†С‹ РІРѕ РІСЂРµРјСЏ РїРµСЂРµС‚Р°СЃРєРёРІР°РЅРёСЏ Р±Р»РѕРєР°
+    event.preventDefault();
+
+    const touch = event.touches[0];
+    const blockPreview = event.currentTarget; // Р­С‚Рѕ .block-preview
+    touchTargetBlockIndex = parseInt(blockPreview.dataset.blockIndex);
+    selectedBlock = {...currentBlocks[touchTargetBlockIndex], index: touchTargetBlockIndex};
+
+    if (!selectedBlock) return;
+
+    // РЎРѕР·РґР°РµРј РІРёР·СѓР°Р»СЊРЅС‹Р№ РєР»РѕРЅ Р±Р»РѕРєР° РґР»СЏ РїРµСЂРµС‚Р°СЃРєРёРІР°РЅРёСЏ
+    if (!draggingElement) {
+        draggingElement = document.createElement('div');
+        draggingElement.id = 'dragging-block';
+        // РљРѕРїРёСЂСѓРµРј РјРёРЅРё-СЃРµС‚РєСѓ РёР· РїСЂРµРІСЊСЋ
+        const previewGrid = blockPreview.querySelector('div'); 
+        if (previewGrid) {
+            draggingElement.appendChild(previewGrid.cloneNode(true));
+            // РњРѕР¶РЅРѕ РґРѕР±Р°РІРёС‚СЊ РјР°СЃС€С‚Р°Р±РёСЂРѕРІР°РЅРёРµ, РµСЃР»Рё РЅСѓР¶РЅРѕ
+            // draggingElement.style.transform = 'scale(1.1)'; 
+        } else {
+            // Р—Р°РїР°СЃРЅРѕР№ РІР°СЂРёР°РЅС‚, РµСЃР»Рё РЅРµ РЅР°С€Р»Рё СЃРµС‚РєСѓ
+            draggingElement.style.width = '60px';
+            draggingElement.style.height = '60px';
+            draggingElement.style.backgroundColor = selectedBlock.color;
+        }
+        document.body.appendChild(draggingElement);
+    }
+
+    // РќР°С‡Р°Р»СЊРЅС‹Рµ РєРѕРѕСЂРґРёРЅР°С‚С‹ РєР°СЃР°РЅРёСЏ
+    touchStartX = touch.clientX;
+    touchStartY = touch.clientY;
+
+    // РџРѕР·РёС†РёРѕРЅРёСЂСѓРµРј РєР»РѕРЅ РїРѕРґ РїР°Р»СЊС†РµРј
+    positionDraggingElement(touch.clientX, touch.clientY);
+
+    // Р”РѕР±Р°РІР»СЏРµРј РѕР±СЂР°Р±РѕС‚С‡РёРєРё РґРІРёР¶РµРЅРёСЏ Рё РѕС‚РїСѓСЃРєР°РЅРёСЏ РЅР° РІРµСЃСЊ РґРѕРєСѓРјРµРЅС‚
+    document.addEventListener('touchmove', handleTouchMove, { passive: false });
+    document.addEventListener('touchend', handleTouchEnd);
+    document.addEventListener('touchcancel', handleTouchEnd); // РќР° СЃР»СѓС‡Р°Р№ РѕС‚РјРµРЅС‹ РєР°СЃР°РЅРёСЏ
+
+    console.log("Touch Start - С‚Р°С‰РёРј Р±Р»РѕРє:", selectedBlock.type);
+}
+
+function handleTouchMove(event) {
+    if (!draggingElement || event.touches.length !== 1) return;
+    // РџСЂРµРґРѕС‚РІСЂР°С‰Р°РµРј РїСЂРѕРєСЂСѓС‚РєСѓ
+    event.preventDefault(); 
+
+    const touch = event.touches[0];
+    
+    // РџРµСЂРµРјРµС‰Р°РµРј РєР»РѕРЅ Р±Р»РѕРєР°
+    positionDraggingElement(touch.clientX, touch.clientY);
+
+    // РћРїСЂРµРґРµР»СЏРµРј СЌР»РµРјРµРЅС‚ РїРѕРґ РїР°Р»СЊС†РµРј
+    const elementUnderTouch = document.elementFromPoint(touch.clientX, touch.clientY);
+    const cell = elementUnderTouch ? elementUnderTouch.closest('.grid-cell') : null;
+
+    if (cell && selectedBlock) {
+        highlightPlacementArea(
+            parseInt(cell.dataset.row),
+            parseInt(cell.dataset.col),
+            selectedBlock
+        );
+    } else {
+        clearHighlight(); // РћС‡РёС‰Р°РµРј РїРѕРґСЃРІРµС‚РєСѓ, РµСЃР»Рё РїР°Р»РµС† РЅРµ РЅР°Рґ СЃРµС‚РєРѕР№
+    }
+}
+
+function handleTouchEnd(event) {
+    if (!draggingElement) return;
+
+    // РћРїСЂРµРґРµР»СЏРµРј СЌР»РµРјРµРЅС‚ РїРѕРґ С‚РѕС‡РєРѕР№ РѕС‚РїСѓСЃРєР°РЅРёСЏ
+    // РСЃРїРѕР»СЊР·СѓРµРј last known position РёР»Рё changedTouches[0] РµСЃР»Рё РµСЃС‚СЊ
+    const lastTouch = event.changedTouches[0];
+    const endX = lastTouch.clientX;
+    const endY = lastTouch.clientY;
+    const elementUnderTouch = document.elementFromPoint(endX, endY);
+    const targetCell = elementUnderTouch ? elementUnderTouch.closest('.grid-cell') : null;
+
+    clearHighlight();
+
+    if (targetCell && selectedBlock && touchTargetBlockIndex !== -1) {
+        const row = parseInt(targetCell.dataset.row);
+        const col = parseInt(targetCell.dataset.col);
+        const blockToPlace = currentBlocks[touchTargetBlockIndex]; // Р‘РµСЂРµРј Р±Р»РѕРє РїРѕ СЃРѕС…СЂР°РЅРµРЅРЅРѕРјСѓ РёРЅРґРµРєСЃСѓ
+
+        if (blockToPlace && isValidPlacement(row, col, blockToPlace)) {
+            console.log("Touch End - СЂР°Р·РјРµС‰Р°РµРј Р±Р»РѕРє", blockToPlace.type);
+            placeBlock(row, col, blockToPlace);
+            currentBlocks[touchTargetBlockIndex] = null; // РЈР±РёСЂР°РµРј РёР· РґРѕСЃС‚СѓРїРЅС‹С…
+            renderGrid();
+            renderNextBlocks();
+
+            const linesCleared = clearLines();
+            if (linesCleared > 0) {
+                renderGrid();
+                updateScore(score + linesCleared * 100);
+            }
+
+            if (currentBlocks.every(b => b === null)) {
+                generateNextBlocks();
+            }
+
+            if (isGameOver()) {
+                setTimeout(() => {
+                    alert(`РРіСЂР° РѕРєРѕРЅС‡РµРЅР°! Р’Р°С€ СЃС‡С‘С‚: ${score}`);
+                }, 300);
+            }
+        } else {
+            console.log("Touch End - РЅРµРІРµСЂРЅРѕРµ СЂР°Р·РјРµС‰РµРЅРёРµ");
+        }
+    }
+
+    // РЈР±РёСЂР°РµРј РєР»РѕРЅ Р±Р»РѕРєР° Рё СЃР±СЂР°СЃС‹РІР°РµРј СЃРѕСЃС‚РѕСЏРЅРёРµ
+    if (draggingElement) {
+        draggingElement.remove();
+        draggingElement = null;
+    }
+    selectedBlock = null;
+    touchTargetBlockIndex = -1;
+
+    // РЈРґР°Р»СЏРµРј РѕР±СЂР°Р±РѕС‚С‡РёРєРё СЃ РґРѕРєСѓРјРµРЅС‚Р°
+    document.removeEventListener('touchmove', handleTouchMove);
+    document.removeEventListener('touchend', handleTouchEnd);
+    document.removeEventListener('touchcancel', handleTouchEnd);
+}
+
+// Р’СЃРїРѕРјРѕРіР°С‚РµР»СЊРЅР°СЏ С„СѓРЅРєС†РёСЏ РґР»СЏ РїРѕР·РёС†РёРѕРЅРёСЂРѕРІР°РЅРёСЏ РїРµСЂРµС‚Р°СЃРєРёРІР°РµРјРѕРіРѕ СЌР»РµРјРµРЅС‚Р°
+function positionDraggingElement(x, y) {
+    if (!draggingElement) return;
+    // Р¦РµРЅС‚СЂРёСЂСѓРµРј СЌР»РµРјРµРЅС‚ РїРѕРґ С‚РѕС‡РєРѕР№ РєР°СЃР°РЅРёСЏ (РёР»Рё СЃРѕ СЃРјРµС‰РµРЅРёРµРј)
+    const rect = draggingElement.getBoundingClientRect();
+    draggingElement.style.left = `${x - rect.width / 2}px`;
+    draggingElement.style.top = `${y - rect.height / 2}px`;
+} 
