@@ -49,10 +49,14 @@ let selectedBlock = null; // Какой блок выбран для перет�
 let dragOffsetX = 0;
 let dragOffsetY = 0;
 let draggingElement = null; // Элемент, который тащим пальцем
+let draggingElementWidth = 0; // <<-- Новая переменная
+let draggingElementHeight = 0; // <<-- Новая переменная
 let touchStartX = 0;
 let touchStartY = 0;
 let touchTargetBlockIndex = -1;
 let isVibrationEnabled = true; // По умолчанию вибрация включена
+let gridRectCache = null; // <<-- Кеш геометрии сетки
+let isDraggingOverGrid = false; // <<-- Флаг, что тащим над сеткой
 
 // --- Элементы DOM ---
 let gameContainer;
@@ -121,6 +125,7 @@ document.addEventListener('DOMContentLoaded', function() {
     // Переносим вызов newGame внутрь DOMContentLoaded после инициализации элементов
     initializeGrid();
     newGame();
+    updateGridRectCache(); // <<-- Первичное получение геометрии сетки
 
     // Загрузка состояния вибрации из localStorage
     const savedVibrationSetting = localStorage.getItem('blockBlastVibration');
@@ -353,14 +358,15 @@ function handleDragOver(event) {
     event.preventDefault();
     event.dataTransfer.dropEffect = 'move';
 
-    // Подсветка ячеек
-    const cell = event.target.closest('.grid-cell');
-    if (cell && selectedBlock) {
-        highlightPlacementArea(
-            parseInt(cell.dataset.row), 
-            parseInt(cell.dataset.col), 
-            selectedBlock
-        );
+    // Получаем строку/колонку под курсором
+    const gridPos = getRowColFromCoords(event.clientX, event.clientY);
+
+    if (gridPos && selectedBlock) {
+        isDraggingOverGrid = true;
+        highlightPlacementArea(gridPos.row, gridPos.col, selectedBlock); 
+    } else {
+        isDraggingOverGrid = false;
+        clearHighlight();
     }
 }
 
@@ -400,24 +406,25 @@ function handleDrop(event) {
     clearHighlight();
     
     const blockIndex = parseInt(event.dataTransfer.getData('text/plain'));
-    const targetCell = event.target.closest('.grid-cell');
+    const gridPos = getRowColFromCoords(event.clientX, event.clientY); // Получаем позицию по курсору
 
-    if (targetCell && !isNaN(blockIndex)) {
-        const row = parseInt(targetCell.dataset.row);
-        const col = parseInt(targetCell.dataset.col);
-        const blockToPlace = currentBlocks[blockIndex];
+    // Используем gridPos для размещения
+    if (gridPos && !isNaN(blockIndex)) {
+        const row = gridPos.row;
+        const col = gridPos.col;
+        const blockToPlace = currentBlocks[blockIndex]; 
 
         if (blockToPlace && isValidPlacement(row, col, blockToPlace)) {
-            console.log("Touch End - размещаем блок", blockToPlace.type);
             placeBlock(row, col, blockToPlace);
             currentBlocks[blockIndex] = null; 
-            handlePlacementLogic(blockIndex);
+            handlePlacementLogic(blockIndex); 
         } else {
-            console.log("Touch End - неверное размещение");
+             console.log("Drop - invalid placement at snapped position");
         }
+    } else {
+        console.log("Drop - outside grid or invalid block index");
     }
-    
-    selectedBlock = null;
+    selectedBlock = null; 
 }
 
 // Обработка клика по блоку
@@ -656,7 +663,10 @@ function redrawUI() {
 let resizeTimeout;
 window.addEventListener('resize', () => {
     clearTimeout(resizeTimeout);
-    resizeTimeout = setTimeout(redrawUI, 250); // Вызываем только перерисовку UI
+    resizeTimeout = setTimeout(() => {
+        redrawUI(); 
+        updateGridRectCache(); // <<-- Обновляем кеш при ресайзе
+    }, 250); 
 });
 
 // --- Touch Event Handlers --- 
@@ -678,12 +688,9 @@ function handleTouchStart(event) {
     if (!draggingElement) {
         draggingElement = document.createElement('div');
         draggingElement.id = 'dragging-block';
-        // Копируем мини-сетку из превью
         const previewGrid = blockPreview.querySelector('div'); 
         if (previewGrid) {
             draggingElement.appendChild(previewGrid.cloneNode(true));
-            // Можно добавить масштабирование, если нужно
-            // draggingElement.style.transform = 'scale(1.1)'; 
         } else {
             // Запасной вариант, если не нашли сетку
             draggingElement.style.width = '60px';
@@ -691,6 +698,11 @@ function handleTouchStart(event) {
             draggingElement.style.backgroundColor = selectedBlock.color;
         }
         document.body.appendChild(draggingElement);
+        
+        // <<-- Получаем и сохраняем размеры ПОСЛЕ добавления в DOM
+        const rect = draggingElement.getBoundingClientRect();
+        draggingElementWidth = rect.width;
+        draggingElementHeight = rect.height;
     }
 
     // Начальные координаты касания
@@ -706,6 +718,7 @@ function handleTouchStart(event) {
     document.addEventListener('touchcancel', handleTouchEnd); // На случай отмены касания
 
     console.log("Touch Start - тащим блок:", selectedBlock.type);
+    updateGridRectCache(); // <<-- Обновляем кеш при старте касания
 }
 
 function handleTouchMove(event) {
@@ -718,38 +731,33 @@ function handleTouchMove(event) {
     // Перемещаем клон блока
     positionDraggingElement(touch.clientX, touch.clientY);
 
-    // Определяем элемент под пальцем
-    const elementUnderTouch = document.elementFromPoint(touch.clientX, touch.clientY);
-    const cell = elementUnderTouch ? elementUnderTouch.closest('.grid-cell') : null;
+    // Получаем строку/колонку под пальцем
+    const gridPos = getRowColFromCoords(touch.clientX, touch.clientY);
 
-    if (cell && selectedBlock) {
-        highlightPlacementArea(
-            parseInt(cell.dataset.row),
-            parseInt(cell.dataset.col),
-            selectedBlock
-        );
+    if (gridPos && selectedBlock) {
+        isDraggingOverGrid = true;
+        highlightPlacementArea(gridPos.row, gridPos.col, selectedBlock);
     } else {
-        clearHighlight(); // Очищаем подсветку, если палец не над сеткой
+        isDraggingOverGrid = false;
+        clearHighlight(); 
     }
 }
 
 function handleTouchEnd(event) {
     if (!draggingElement) return;
 
-    // Определяем элемент под точкой отпускания
-    // Используем last known position или changedTouches[0] если есть
     const lastTouch = event.changedTouches[0];
     const endX = lastTouch.clientX;
     const endY = lastTouch.clientY;
-    const elementUnderTouch = document.elementFromPoint(endX, endY);
-    const targetCell = elementUnderTouch ? elementUnderTouch.closest('.grid-cell') : null;
+    const gridPos = getRowColFromCoords(endX, endY); // Получаем финальную позицию
 
     clearHighlight();
 
-    if (targetCell && selectedBlock && touchTargetBlockIndex !== -1) {
-        const row = parseInt(targetCell.dataset.row);
-        const col = parseInt(targetCell.dataset.col);
-        const blockIndex = touchTargetBlockIndex;
+    // Используем gridPos для размещения, если он есть
+    if (gridPos && selectedBlock && touchTargetBlockIndex !== -1) {
+        const row = gridPos.row;
+        const col = gridPos.col;
+        const blockIndex = touchTargetBlockIndex; 
         const blockToPlace = currentBlocks[blockIndex];
 
         if (blockToPlace && isValidPlacement(row, col, blockToPlace)) {
@@ -757,7 +765,6 @@ function handleTouchEnd(event) {
             currentBlocks[blockIndex] = null;
             handlePlacementLogic(blockIndex);
         } 
-        // Не сбрасываем selectedBlock здесь, он сбросится ниже
     }
 
     // Убираем клон блока и сбрасываем состояние
@@ -774,13 +781,77 @@ function handleTouchEnd(event) {
     document.removeEventListener('touchcancel', handleTouchEnd);
 }
 
-// Вспомогательная функция для позиционирования перетаскиваемого элемента
+// Обновленная функция позиционирования
 function positionDraggingElement(x, y) {
     if (!draggingElement) return;
-    // Центрируем элемент под точкой касания (или со смещением)
-    const rect = draggingElement.getBoundingClientRect();
-    draggingElement.style.left = `${x - rect.width / 2}px`;
-    draggingElement.style.top = `${y - rect.height / 2}px`;
+
+    const gridPos = getRowColFromCoords(x, y);
+
+    if (gridPos && gridRectCache) {
+        // Snapping к сетке
+        const padding = 4 * 2; // Должно совпадать с CSS padding gridContainer
+        const gap = 1;
+        const snappedX = gridRectCache.left + padding / 2 + gridPos.col * (gridPos.cellSize + gap);
+        const snappedY = gridRectCache.top + padding / 2 + gridPos.row * (gridPos.cellSize + gap);
+        
+        draggingElement.style.left = `${snappedX}px`;
+        draggingElement.style.top = `${snappedY}px`;
+         // Убираем центрирование, выравниваем по верхнему левому углу
+    } else {
+        // Позиционируем под пальцем (как раньше, с центрированием)
+        draggingElement.style.left = `${x - draggingElementWidth / 2}px`;
+        draggingElement.style.top = `${y - draggingElementHeight / 2}px`;
+    }
+}
+
+// --- Вспомогательная функция для обновления кеша сетки ---
+function updateGridRectCache() {
+    if (gridContainer) {
+        gridRectCache = gridContainer.getBoundingClientRect();
+        console.log("Grid rect cache updated:", gridRectCache);
+    } else {
+        gridRectCache = null;
+    }
+}
+
+// --- Вспомогательная функция для получения строки/колонки по координатам ---
+function getRowColFromCoords(clientX, clientY) {
+    if (!gridRectCache) return null;
+
+    const relativeX = clientX - gridRectCache.left;
+    const relativeY = clientY - gridRectCache.top;
+    
+    // Рассчитываем размер ячейки (можно тоже кешировать)
+    const gap = 1;
+    const padding = 4 * 2; // Должно совпадать с CSS padding gridContainer
+    const availableWidth = gridRectCache.width - padding - (GRID_SIZE - 1) * gap;
+    const cellSize = Math.max(10, Math.floor(availableWidth / GRID_SIZE));
+    
+    if (cellSize <= 0) return null; // Невозможно рассчитать
+
+    // Проверяем, находятся ли координаты внутри видимой области сетки (с учетом padding)
+    const gridInnerLeft = gridRectCache.left + padding / 2;
+    const gridInnerTop = gridRectCache.top + padding / 2;
+    const gridInnerRight = gridRectCache.right - padding / 2;
+    const gridInnerBottom = gridRectCache.bottom - padding / 2;
+
+    if (clientX < gridInnerLeft || clientX > gridInnerRight || clientY < gridInnerTop || clientY > gridInnerBottom) {
+        return null; // Координаты вне сетки
+    }
+
+    // Рассчитываем строку и колонку относительно внутреннего пространства сетки
+    const relativeInnerX = clientX - gridInnerLeft;
+    const relativeInnerY = clientY - gridInnerTop;
+    
+    const targetCol = Math.floor(relativeInnerX / (cellSize + gap)); // Учитываем gap между ячейками
+    const targetRow = Math.floor(relativeInnerY / (cellSize + gap));
+
+    // Ограничиваем значения границами сетки
+    const col = Math.max(0, Math.min(GRID_SIZE - 1, targetCol));
+    const row = Math.max(0, Math.min(GRID_SIZE - 1, targetRow));
+
+    // console.log(`Coords: ${clientX},${clientY} -> Rel: ${relativeX},${relativeY} -> CellSize: ${cellSize} -> Row: ${row}, Col: ${col}`);
+    return { row, col, cellSize };
 }
 
 // Новая функция для обработки логики после размещения блока
