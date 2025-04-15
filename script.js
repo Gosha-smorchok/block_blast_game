@@ -1,6 +1,6 @@
-// --- РљРѕРЅСЃС‚Р°РЅС‚С‹ ---
+// --- Константы ---
 const GRID_SIZE = 8;
-const CELL_SIZE = 40; // РЎРѕРІРїР°РґР°РµС‚ СЃ CSS
+const CELL_SIZE = 40; // Совпадает с CSS
 const blockColors = {
     'L': '#81C784',    // Soft Green 
     '2x2': '#64B5F6', // Soft Blue
@@ -9,18 +9,18 @@ const blockColors = {
 };
 
 const blockShapes = {
-    // РљРѕРѕСЂРґРёРЅР°С‚С‹ РєР»РµС‚РѕРє РѕС‚РЅРѕСЃРёС‚РµР»СЊРЅРѕ С‚РѕС‡РєРё РІСЃС‚Р°РІРєРё (РІРµСЂС…РЅРёР№ Р»РµРІС‹Р№ СѓРіРѕР»)
+    // Координаты клеток относительно точки вставки (верхний левый угол)
     '3x3': { 
         color: blockColors['3x3'], 
         cells: [[0,0], [0,1], [0,2], [1,0], [1,1], [1,2], [2,0], [2,1], [2,2]] 
     },
-    '2x3': { // РџСЂСЏРјРѕСѓРіРѕР»СЊРЅРёРє 2x3
+    '2x3': { // Прямоугольник 2x3
         color: blockColors['2x3'],
         rotations: [
-            [[0,0], [0,1], [0,2], [1,0], [1,1], [1,2]], // 0 РіСЂР°РґСѓСЃРѕРІ
-            [[0,0], [0,1], [1,0], [1,1], [2,0], [2,1]], // 90 РіСЂР°РґСѓСЃРѕРІ
-            [[0,0], [0,1], [0,2], [1,0], [1,1], [1,2]], // 180 РіСЂР°РґСѓСЃРѕРІ (РєР°Рє 0)
-            [[0,0], [0,1], [1,0], [1,1], [2,0], [2,1]], // 270 РіСЂР°РґСѓСЃРѕРІ (РєР°Рє 90)
+            [[0,0], [0,1], [0,2], [1,0], [1,1], [1,2]], // 0 градусов
+            [[0,0], [0,1], [1,0], [1,1], [2,0], [2,1]], // 90 градусов
+            [[0,0], [0,1], [0,2], [1,0], [1,1], [1,2]], // 180 градусов (как 0)
+            [[0,0], [0,1], [1,0], [1,1], [2,0], [2,1]], // 270 градусов (как 90)
         ],
         currentRotation: 0
     },
@@ -31,37 +31,39 @@ const blockShapes = {
     'L': {
         color: blockColors['L'],
         rotations: [
-            [[0,0], [1,0], [2,0], [2,1]], // 0 РіСЂР°РґСѓСЃРѕРІ
-            [[0,0], [0,1], [0,2], [1,0]], // 90 РіСЂР°РґСѓСЃРѕРІ
-            [[0,0], [0,1], [1,1], [2,1]], // 180 РіСЂР°РґСѓСЃРѕРІ
-            [[1,0], [1,1], [1,2], [0,2]], // 270 РіСЂР°РґСѓСЃРѕРІ
+            [[0,0], [1,0], [2,0], [2,1]], // 0 градусов
+            [[0,0], [0,1], [0,2], [1,0]], // 90 градусов
+            [[0,0], [0,1], [1,1], [2,1]], // 180 градусов
+            [[1,0], [1,1], [1,2], [0,2]], // 270 градусов
         ],
         currentRotation: 0
     }
 };
 const blockTypes = Object.keys(blockShapes);
 
-// --- РџРµСЂРµРјРµРЅРЅС‹Рµ СЃРѕСЃС‚РѕСЏРЅРёСЏ РёРіСЂС‹ ---
-let grid = []; // Р”РІСѓРјРµСЂРЅС‹Р№ РјР°СЃСЃРёРІ СЃРѕСЃС‚РѕСЏРЅРёСЏ РїРѕР»СЏ (0 - РїСѓСЃС‚Рѕ, 1 - Р·Р°РЅСЏС‚Рѕ/С†РІРµС‚)
+// --- Переменные состояния игры ---
+let grid = []; // Двумерный массив состояния поля (0 - пусто, 1 - занято/цвет)
 let score = 0;
-let currentBlocks = []; // РўСЂРё С‚РµРєСѓС‰РёС… Р±Р»РѕРєР° РґР»СЏ РІС‹Р±РѕСЂР°
-let selectedBlock = null; // РљР°РєРѕР№ Р±Р»РѕРє РІС‹Р±СЂР°РЅ РґР»СЏ РїРµСЂРµС‚Р°СЃРєРёРІР°РЅРёСЏ/СЂР°Р·РјРµС‰РµРЅРёСЏ
+let currentBlocks = []; // Три текущих блока для выбора
+let selectedBlock = null; // Какой блок выбран для перетаскивания/размещения
 let dragOffsetX = 0;
 let dragOffsetY = 0;
-let draggingElement = null; // Р­Р»РµРјРµРЅС‚, РєРѕС‚РѕСЂС‹Р№ С‚Р°С‰РёРј РїР°Р»СЊС†РµРј
+let draggingElement = null; // Элемент, который тащим пальцем
 let touchStartX = 0;
 let touchStartY = 0;
 let touchTargetBlockIndex = -1;
+let isVibrationEnabled = true; // По умолчанию вибрация включена
 
-// --- Р­Р»РµРјРµРЅС‚С‹ DOM ---
+// --- Элементы DOM ---
 let gameContainer;
 let gridContainer;
 let scoreDisplay;
 let nextBlocksPanel;
 let rotateButton;
 let newGameButton;
+let vibrationToggle; // Добавляем элемент чекбокса
 
-// РРЅРёС†РёР°Р»РёР·Р°С†РёСЏ РїРѕСЃР»Рµ Р·Р°РіСЂСѓР·РєРё DOM
+// Инициализация после загрузки DOM
 document.addEventListener('DOMContentLoaded', function() {
     gameContainer = document.getElementById('game-container');
     gridContainer = document.getElementById('grid-container');
@@ -70,17 +72,18 @@ document.addEventListener('DOMContentLoaded', function() {
     rotateButton = document.getElementById('rotate-button');
     newGameButton = document.getElementById('new-game-button');
     const settingsButton = document.getElementById('settings-button');
-    const settingsModal = document.getElementById('settings-modal'); // РџРѕР»СѓС‡Р°РµРј РјРѕРґР°Р»СЊРЅРѕРµ РѕРєРЅРѕ
+    const settingsModal = document.getElementById('settings-modal'); // Получаем модальное окно
     const modalNewGameButton = document.getElementById('modal-new-game');
     const modalContinueButton = document.getElementById('modal-continue');
+    vibrationToggle = document.getElementById('vibration-toggle'); // Получаем чекбокс
 
     if(settingsButton && settingsModal) {
         settingsButton.addEventListener('click', () => { 
-            settingsModal.classList.add('active'); // РџРѕРєР°Р·С‹РІР°РµРј РѕРєРЅРѕ
+            settingsModal.classList.add('active'); // Показываем окно
         });
     }
 
-    // Р¤СѓРЅРєС†РёСЏ Р·Р°РєСЂС‹С‚РёСЏ РјРѕРґР°Р»СЊРЅРѕРіРѕ РѕРєРЅР°
+    // Функция закрытия модального окна
     function closeModal() {
         if (settingsModal) {
             settingsModal.classList.remove('active');
@@ -89,25 +92,25 @@ document.addEventListener('DOMContentLoaded', function() {
 
     if (modalNewGameButton) {
         modalNewGameButton.addEventListener('click', () => {
-            closeModal(); // Р—Р°РєСЂС‹РІР°РµРј РѕРєРЅРѕ
-            newGame(); // РќР°С‡РёРЅР°РµРј РЅРѕРІСѓСЋ РёРіСЂСѓ
+            closeModal(); // Закрываем окно
+            newGame(); // Начинаем новую игру
         });
     }
 
     if (modalContinueButton) {
-        modalContinueButton.addEventListener('click', closeModal); // РџСЂРѕСЃС‚Рѕ Р·Р°РєСЂС‹РІР°РµРј РѕРєРЅРѕ
+        modalContinueButton.addEventListener('click', closeModal); // Просто закрываем окно
     }
 
-    // Р—Р°РєСЂС‹С‚РёРµ РјРѕРґР°Р»СЊРЅРѕРіРѕ РѕРєРЅР° РїРѕ РєР»РёРєСѓ РІРЅРµ РµРіРѕ РѕР±Р»Р°СЃС‚Рё
+    // Закрытие модального окна по клику вне его области
     if (settingsModal) {
         settingsModal.addEventListener('click', (event) => {
-            if (event.target === settingsModal) { // РљР»РёРє Р±С‹Р» РїРѕ С„РѕРЅСѓ (СЃР°РјРѕРјСѓ .modal)
+            if (event.target === settingsModal) { // Клик был по фону (самому .modal)
                 closeModal();
             }
         });
     }
     
-    // РќР°Р·РЅР°С‡РµРЅРёРµ РѕР±СЂР°Р±РѕС‚С‡РёРєРѕРІ
+    // Назначение обработчиков
     gridContainer.addEventListener('dragover', handleDragOver);
     gridContainer.addEventListener('drop', handleDrop);
     gridContainer.addEventListener('click', handleGridClick);
@@ -115,27 +118,58 @@ document.addEventListener('DOMContentLoaded', function() {
     newGameButton?.addEventListener('click', newGame);
     addHighlightStyles();
     
-    // РџРµСЂРµРЅРѕСЃРёРј РІС‹Р·РѕРІ newGame РІРЅСѓС‚СЂСЊ DOMContentLoaded РїРѕСЃР»Рµ РёРЅРёС†РёР°Р»РёР·Р°С†РёРё СЌР»РµРјРµРЅС‚РѕРІ
+    // Переносим вызов newGame внутрь DOMContentLoaded после инициализации элементов
     initializeGrid();
     newGame();
+
+    // Загрузка состояния вибрации из localStorage
+    const savedVibrationSetting = localStorage.getItem('blockBlastVibration');
+    if (savedVibrationSetting !== null) {
+        isVibrationEnabled = savedVibrationSetting === 'true';
+    }
+    if (vibrationToggle) {
+        vibrationToggle.checked = isVibrationEnabled;
+
+        // Обработчик изменения чекбокса
+        vibrationToggle.addEventListener('change', () => {
+            isVibrationEnabled = vibrationToggle.checked;
+            localStorage.setItem('blockBlastVibration', isVibrationEnabled); // Сохраняем настройку
+            console.log('Vibration enabled:', isVibrationEnabled);
+            if (isVibrationEnabled) {
+                 triggerHapticFeedback('light'); // Небольшая вибрация при включении
+            }
+        });
+    }
+
+    // Инициализация Telegram Mini App
+    try {
+        if (window.Telegram?.WebApp) {
+             window.Telegram.WebApp.ready();
+             // ... (настройка темы, если нужна) ...
+        } else {
+             console.warn("Telegram WebApp API not fully available or ready.");
+        }
+    } catch (error) {
+        console.error("Error initializing Telegram WebApp API:", error);
+    }
 });
 
 function calculateCellSize() {
-    if (!gameContainer || !gridContainer) return 10; // Р’РѕР·РІСЂР°С‰Р°РµРј РјРёРЅРёРјСѓРј, РµСЃР»Рё СЌР»РµРјРµРЅС‚С‹ РЅРµ РЅР°Р№РґРµРЅС‹
+    if (!gameContainer || !gridContainer) return 10; // Возвращаем минимум, если элементы не найдены
 
-    // РСЃРїРѕР»СЊР·СѓРµРј С€РёСЂРёРЅСѓ РІРЅРµС€РЅРµРіРѕ РєРѕРЅС‚РµР№РЅРµСЂР°
+    // Используем ширину внешнего контейнера
     const gameContainerWidth = gameContainer.offsetWidth; 
     
-    // РџРѕР»СѓС‡Р°РµРј РІС‹С‡РёСЃР»РµРЅРЅС‹Рµ СЃС‚РёР»Рё gridContainer РґР»СЏ С‚РѕС‡РЅРѕРіРѕ padding
+    // Получаем вычисленные стили gridContainer для точного padding
     const gridStyle = window.getComputedStyle(gridContainer);
     const gridPaddingLeft = parseFloat(gridStyle.paddingLeft) || 0;
     const gridPaddingRight = parseFloat(gridStyle.paddingRight) || 0;
     const gridTotalPadding = gridPaddingLeft + gridPaddingRight;
 
-    const gap = 1; // РЎРѕРѕС‚РІРµС‚СЃС‚РІСѓРµС‚ gap РІ CSS РґР»СЏ gridContainer
+    const gap = 1; // Соответствует gap в CSS для gridContainer
 
-    // Р”РѕСЃС‚СѓРїРЅР°СЏ С€РёСЂРёРЅР° РІРЅСѓС‚СЂРё padding СЃРµС‚РєРё
-    // РСЃРїРѕР»СЊР·СѓРµРј gameContainerWidth, С‚.Рє. gridContainer РґРѕР»Р¶РµРЅ Р·Р°РЅРёРјР°С‚СЊ РµРіРѕ С€РёСЂРёРЅСѓ (Р·Р° РІС‹С‡РµС‚РѕРј СЃРІРѕРёС… padding)
+    // Доступная ширина внутри padding сетки
+    // Используем gameContainerWidth, т.к. gridContainer должен занимать его ширину (за вычетом своих padding)
     const availableWidth = gameContainerWidth - gridTotalPadding - (GRID_SIZE - 1) * gap; 
     const cellSize = Math.max(10, Math.floor(availableWidth / GRID_SIZE));
 
@@ -148,7 +182,7 @@ function calculateCellSize() {
     return cellSize;
 }
 
-/** РРЅРёС†РёР°Р»РёР·Р°С†РёСЏ РёР»Рё СЃР±СЂРѕСЃ РёРіСЂРѕРІРѕРіРѕ РїРѕР»СЏ */
+/** Инициализация или сброс игрового поля */
 function initializeGrid() {
     grid = Array(GRID_SIZE).fill(null).map(() => Array(GRID_SIZE).fill(null));
     gridContainer.innerHTML = '';
@@ -156,7 +190,7 @@ function initializeGrid() {
 
     const cellSize = calculateCellSize();
 
-    // РџСЂРёРјРµРЅСЏРµРј СЂР°Р·РјРµСЂС‹ Рє СЃРµС‚РєРµ
+    // Применяем размеры к сетке
     gridContainer.style.gridTemplateColumns = `repeat(${GRID_SIZE}, ${cellSize}px)`;
     gridContainer.style.gridTemplateRows = `repeat(${GRID_SIZE}, ${cellSize}px)`;
 
@@ -169,11 +203,11 @@ function initializeGrid() {
             gridContainer.appendChild(cell);
         }
     }
-    // Р’С‹Р·С‹РІР°РµРј renderGrid РїРѕСЃР»Рµ СЃРѕР·РґР°РЅРёСЏ РІСЃРµС… СЏС‡РµРµРє
+    // Вызываем renderGrid после создания всех ячеек
     renderGrid(); 
 }
 
-/** РћС‚СЂРёСЃРѕРІРєР° С‚РµРєСѓС‰РµРіРѕ СЃРѕСЃС‚РѕСЏРЅРёСЏ СЃРµС‚РєРё */
+/** Отрисовка текущего состояния сетки */
 function renderGrid() {
     for (let r = 0; r < GRID_SIZE; r++) {
         for (let c = 0; c < GRID_SIZE; c++) {
@@ -189,16 +223,16 @@ function renderGrid() {
     }
 }
 
-/** Р“РµРЅРµСЂР°С†РёСЏ СЃР»СѓС‡Р°Р№РЅРѕРіРѕ Р±Р»РѕРєР° */
+/** Генерация случайного блока */
 function generateBlock() {
     const type = blockTypes[Math.floor(Math.random() * blockTypes.length)];
     const shapeInfo = blockShapes[type];
 
-    // РљР»РѕРЅРёСЂСѓРµРј РѕР±СЉРµРєС‚, С‡С‚РѕР±С‹ РЅРµ РёР·РјРµРЅСЏС‚СЊ РёСЃС…РѕРґРЅС‹Рµ С„РѕСЂРјС‹
+    // Клонируем объект, чтобы не изменять исходные формы
     const newBlock = JSON.parse(JSON.stringify(shapeInfo));
     newBlock.type = type;
 
-    // РћР±СЂР°Р±Р°С‚С‹РІР°РµРј РІСЂР°С‰РµРЅРёСЏ
+    // Обрабатываем вращения
     if (newBlock.rotations) {
         newBlock.cells = newBlock.rotations[newBlock.currentRotation];
     }
@@ -206,13 +240,13 @@ function generateBlock() {
     return newBlock;
 }
 
-/** Р“РµРЅРµСЂР°С†РёСЏ Рё РѕС‚РѕР±СЂР°Р¶РµРЅРёРµ СЃР»РµРґСѓСЋС‰РёС… С‚СЂРµС… Р±Р»РѕРєРѕРІ */
+/** Генерация и отображение следующих трех блоков */
 function generateNextBlocks() {
     currentBlocks = [generateBlock(), generateBlock(), generateBlock()];
     renderNextBlocks();
 }
 
-/** РћС‚РѕР±СЂР°Р¶РµРЅРёРµ Р±Р»РѕРєРѕРІ РІ РїР°РЅРµР»Рё РїСЂРµРґРїСЂРѕСЃРјРѕС‚СЂР° */
+/** Отображение блоков в панели предпросмотра */
 function renderNextBlocks() {
     const previews = nextBlocksPanel.querySelectorAll('.block-preview');
     
@@ -228,7 +262,7 @@ function renderNextBlocks() {
         
         preview.style.visibility = 'visible';
 
-        // РЎРѕР·РґР°РµРј РјРёРЅРё-СЃРµС‚РєСѓ РґР»СЏ РѕС‚РѕР±СЂР°Р¶РµРЅРёСЏ Р±Р»РѕРєР°
+        // Создаем мини-сетку для отображения блока
         const blockSize = Math.max(
             ...block.cells.map(cell => Math.max(cell[0], cell[1]))
         ) + 1;
@@ -239,11 +273,11 @@ function renderNextBlocks() {
         previewGrid.style.gridTemplateRows = `repeat(${blockSize}, 15px)`;
         previewGrid.style.gap = '1px';
 
-        // РЎРѕР·РґР°РµРј РєР°СЂС‚Сѓ Р·Р°РЅСЏС‚С‹С… СЏС‡РµРµРє
+        // Создаем карту занятых ячеек
         const cellsMap = {};
         block.cells.forEach(cell => cellsMap[`${cell[0]}_${cell[1]}`] = true);
 
-        // РћС‚СЂРёСЃРѕРІС‹РІР°РµРј РјРёРЅРё-СЃРµС‚РєСѓ
+        // Отрисовываем мини-сетку
         for (let r = 0; r < blockSize; r++) {
             for (let c = 0; c < blockSize; c++) {
                 const cellDiv = document.createElement('div');
@@ -262,45 +296,45 @@ function renderNextBlocks() {
         
         preview.appendChild(previewGrid);
 
-        // Р”РѕР±Р°РІР»СЏРµРј РѕР±СЂР°Р±РѕС‚С‡РёРєРё СЃРѕР±С‹С‚РёР№
+        // Добавляем обработчики событий
         preview.draggable = true;
         preview.addEventListener('dragstart', handleDragStart);
         preview.addEventListener('click', handleClickBlock);
-        // --- Р”РѕР±Р°РІР»СЏРµРј РѕР±СЂР°Р±РѕС‚С‡РёРєРё touch --- 
-        preview.addEventListener('touchstart', handleTouchStart, { passive: false }); // passive: false РґР»СЏ РїСЂРµРґРѕС‚РІСЂР°С‰РµРЅРёСЏ РїСЂРѕРєСЂСѓС‚РєРё
+        // --- Добавляем обработчики touch --- 
+        preview.addEventListener('touchstart', handleTouchStart, { passive: false }); // passive: false для предотвращения прокрутки
     });
 }
 
-/** РћР±РЅРѕРІР»РµРЅРёРµ СЃС‡РµС‚Р° */
+/** Обновление счета */
 function updateScore(newScore) {
-    console.log("Updating score to:", newScore, "Element:", scoreDisplay); // РћС‚Р»Р°РґРєР°
+    console.log("Updating score to:", newScore, "Element:", scoreDisplay); // Отладка
     score = newScore;
-    if (scoreDisplay) { // Р”РѕР±Р°РІРёРј РїСЂРѕРІРµСЂРєСѓ РЅР° СЃСѓС‰РµСЃС‚РІРѕРІР°РЅРёРµ СЌР»РµРјРµРЅС‚Р°
+    if (scoreDisplay) { // Добавим проверку на существование элемента
         scoreDisplay.textContent = score;
     } else {
         console.error("Score display element not found!");
     }
 }
 
-/** РќР°С‡Р°Р»Рѕ РЅРѕРІРѕР№ РёРіСЂС‹ */
+/** Начало новой игры */
 function newGame() {
-    // initializeGrid(); // initializeGrid С‚РµРїРµСЂСЊ РІС‹Р·С‹РІР°РµС‚СЃСЏ РёР· redrawUI РёР»Рё DOMContentLoaded
+    // initializeGrid(); // initializeGrid теперь вызывается из redrawUI или DOMContentLoaded
     updateScore(0);
-    // РРЅРёС†РёР°Р»РёР·Р°С†РёСЏ СЃРµС‚РєРё РґРѕР»Р¶РЅР° РїСЂРѕРёР·РѕР№С‚Рё РїРµСЂРµРґ РіРµРЅРµСЂР°С†РёРµР№ Р±Р»РѕРєРѕРІ Рё СЂРµРЅРґРµСЂРёРЅРіРѕРј
-    // Р•СЃР»Рё redrawUI РЅРµ РІС‹Р·С‹РІР°РµС‚СЃСЏ РїСЂРё РїРµСЂРІРѕР№ Р·Р°РіСЂСѓР·РєРµ, РЅСѓР¶РЅРѕ РІС‹Р·РІР°С‚СЊ initializeGrid Р·РґРµСЃСЊ.
-    // РџСЂРѕРІРµСЂРёРј, РїСѓСЃС‚РѕР№ Р»Рё gridContainer
+    // Инициализация сетки должна произойти перед генерацией блоков и рендерингом
+    // Если redrawUI не вызывается при первой загрузке, нужно вызвать initializeGrid здесь.
+    // Проверим, пустой ли gridContainer
     if (!gridContainer.hasChildNodes()) {
-        initializeGrid(); // Р’С‹Р·С‹РІР°РµРј, РµСЃР»Рё СЃРµС‚РєР° РµС‰Рµ РЅРµ СЃРѕР·РґР°РЅР°
+        initializeGrid(); // Вызываем, если сетка еще не создана
     } else {
-         // Р•СЃР»Рё СЃРµС‚РєР° СѓР¶Рµ РµСЃС‚СЊ, РѕС‡РёСЃС‚РёРј РµС‘ Р»РѕРіРёС‡РµСЃРєРѕРµ РїСЂРµРґСЃС‚Р°РІР»РµРЅРёРµ
+         // Если сетка уже есть, очистим её логическое представление
          grid = Array(GRID_SIZE).fill(null).map(() => Array(GRID_SIZE).fill(null));
-         renderGrid(); // РћР±РЅРѕРІРёРј РѕС‚РѕР±СЂР°Р¶РµРЅРёРµ РѕС‡РёС‰РµРЅРЅРѕР№ СЃРµС‚РєРё
+         renderGrid(); // Обновим отображение очищенной сетки
     }
     generateNextBlocks();
-    // renderGrid(); // РЈР¶Рµ РІС‹Р·РІР°РЅ РІ initializeGrid РёР»Рё РІС‹С€Рµ
+    // renderGrid(); // Уже вызван в initializeGrid или выше
 }
 
-// --- РћР±СЂР°Р±РѕС‚С‡РёРєРё СЃРѕР±С‹С‚РёР№ ---
+// --- Обработчики событий ---
 
 function handleDragStart(event) {
     const blockIndex = parseInt(event.target.closest('.block-preview').dataset.blockIndex);
@@ -308,18 +342,18 @@ function handleDragStart(event) {
     
     if (!selectedBlock) return;
 
-    // РЎРѕС…СЂР°РЅСЏРµРј РёРЅРґРµРєСЃ Р±Р»РѕРєР°
+    // Сохраняем индекс блока
     event.dataTransfer.setData('text/plain', blockIndex.toString());
     event.dataTransfer.effectAllowed = 'move';
     
-    console.log("РќР°С‡Р°Р»Рё С‚Р°С‰РёС‚СЊ Р±Р»РѕРє:", selectedBlock.type);
+    console.log("Начали тащить блок:", selectedBlock.type);
 }
 
 function handleDragOver(event) {
     event.preventDefault();
     event.dataTransfer.dropEffect = 'move';
 
-    // РџРѕРґСЃРІРµС‚РєР° СЏС‡РµРµРє
+    // Подсветка ячеек
     const cell = event.target.closest('.grid-cell');
     if (cell && selectedBlock) {
         highlightPlacementArea(
@@ -330,16 +364,16 @@ function handleDragOver(event) {
     }
 }
 
-// РџРѕРґСЃРІРµС‚РєР° РѕР±Р»Р°СЃС‚Рё СЂР°Р·РјРµС‰РµРЅРёСЏ
+// Подсветка области размещения
 function highlightPlacementArea(row, col, block) {
-    // РЎРЅР°С‡Р°Р»Р° СѓР±РёСЂР°РµРј РїСЂРµРґС‹РґСѓС‰СѓСЋ РїРѕРґСЃРІРµС‚РєСѓ
+    // Сначала убираем предыдущую подсветку
     clearHighlight();
     
     if (!block || !block.cells) return;
     
     const isValid = isValidPlacement(row, col, block);
     
-    // РџРѕРґСЃРІРµС‡РёРІР°РµРј СЏС‡РµР№РєРё
+    // Подсвечиваем ячейки
     block.cells.forEach(cell => {
         const r = row + cell[0];
         const c = col + cell[1];
@@ -353,7 +387,7 @@ function highlightPlacementArea(row, col, block) {
     });
 }
 
-// РЈР±РёСЂР°РµРј РїРѕРґСЃРІРµС‚РєСѓ СЃРѕ РІСЃРµС… СЏС‡РµРµРє
+// Убираем подсветку со всех ячеек
 function clearHighlight() {
     const cells = gridContainer.querySelectorAll('.grid-cell');
     cells.forEach(cell => {
@@ -374,24 +408,24 @@ function handleDrop(event) {
         const blockToPlace = currentBlocks[blockIndex];
 
         if (blockToPlace && isValidPlacement(row, col, blockToPlace)) {
-            console.log("Touch End - СЂР°Р·РјРµС‰Р°РµРј Р±Р»РѕРє", blockToPlace.type);
+            console.log("Touch End - размещаем блок", blockToPlace.type);
             placeBlock(row, col, blockToPlace);
             currentBlocks[blockIndex] = null; 
             handlePlacementLogic(blockIndex);
         } else {
-            console.log("Touch End - РЅРµРІРµСЂРЅРѕРµ СЂР°Р·РјРµС‰РµРЅРёРµ");
+            console.log("Touch End - неверное размещение");
         }
     }
     
     selectedBlock = null;
 }
 
-// РћР±СЂР°Р±РѕС‚РєР° РєР»РёРєР° РїРѕ Р±Р»РѕРєСѓ
+// Обработка клика по блоку
 function handleClickBlock(event) {
     const blockPreview = event.currentTarget;
     const blockIndex = parseInt(blockPreview.dataset.blockIndex);
     
-    // Р•СЃР»Рё РјС‹ СѓР¶Рµ РІС‹Р±СЂР°Р»Рё СЌС‚РѕС‚ Р±Р»РѕРє, РѕС‚РјРµРЅСЏРµРј РІС‹Р±РѕСЂ
+    // Если мы уже выбрали этот блок, отменяем выбор
     if (selectedBlock?.index === blockIndex) {
         selectedBlock = null;
         document.querySelectorAll('.block-preview').forEach(p => 
@@ -399,16 +433,16 @@ function handleClickBlock(event) {
         return;
     }
     
-    // Р’С‹Р±РёСЂР°РµРј РЅРѕРІС‹Р№ Р±Р»РѕРє
+    // Выбираем новый блок
     selectedBlock = {...currentBlocks[blockIndex], index: blockIndex};
     
-    // РћР±РЅРѕРІР»СЏРµРј РІРёР·СѓР°Р»СЊРЅРѕРµ РІС‹РґРµР»РµРЅРёРµ
+    // Обновляем визуальное выделение
     document.querySelectorAll('.block-preview').forEach(p => 
         p.classList.remove('selected-block'));
     blockPreview.classList.add('selected-block');
 }
 
-// РћР±СЂР°Р±РѕС‚РєР° РєР»РёРєР° РїРѕ СЃРµС‚РєРµ
+// Обработка клика по сетке
 function handleGridClick(event) {
     const cell = event.target.closest('.grid-cell');
     if (cell && selectedBlock) {
@@ -424,12 +458,12 @@ function handleGridClick(event) {
                 p.classList.remove('selected-block'));
             handlePlacementLogic(blockIndex);
         } 
-        // РЎР±СЂР°СЃС‹РІР°РµРј РІС‹Р±СЂР°РЅРЅС‹Р№ Р±Р»РѕРє РЅРµР·Р°РІРёСЃРёРјРѕ РѕС‚ СѓСЃРїРµС…Р° СЂР°Р·РјРµС‰РµРЅРёСЏ
+        // Сбрасываем выбранный блок независимо от успеха размещения
         selectedBlock = null; 
     }
 }
 
-/** РџСЂРѕРІРµСЂРєР° РІРѕР·РјРѕР¶РЅРѕСЃС‚Рё СЂР°Р·РјРµС‰РµРЅРёСЏ Р±Р»РѕРєР° */
+/** Проверка возможности размещения блока */
 function isValidPlacement(startRow, startCol, block) {
     if (!block || !block.cells) return false;
     
@@ -437,12 +471,12 @@ function isValidPlacement(startRow, startCol, block) {
         const r = startRow + cell[0];
         const c = startCol + cell[1];
 
-        // РџСЂРѕРІРµСЂРєР° РІС‹С…РѕРґР° Р·Р° РіСЂР°РЅРёС†С‹
+        // Проверка выхода за границы
         if (r < 0 || r >= GRID_SIZE || c < 0 || c >= GRID_SIZE) {
             return false;
         }
         
-        // РџСЂРѕРІРµСЂРєР° РЅР°Р»РѕР¶РµРЅРёСЏ РЅР° Р·Р°РЅСЏС‚С‹Рµ РєР»РµС‚РєРё
+        // Проверка наложения на занятые клетки
         if (grid[r][c] !== null) {
             return false;
         }
@@ -451,7 +485,7 @@ function isValidPlacement(startRow, startCol, block) {
     return true;
 }
 
-/** Р Р°Р·РјРµС‰РµРЅРёРµ Р±Р»РѕРєР° РЅР° РїРѕР»Рµ */
+/** Размещение блока на поле */
 function placeBlock(startRow, startCol, block) {
     block.cells.forEach(cell => {
         const r = startRow + cell[0];
@@ -461,23 +495,24 @@ function placeBlock(startRow, startCol, block) {
             grid[r][c] = block.color;
         }
     });
+    triggerHapticFeedback('light'); // <<-- Вибрация при размещении
 }
 
-/** РџСЂРѕРІРµСЂРєР° Рё СѓРґР°Р»РµРЅРёРµ Р·Р°РїРѕР»РЅРµРЅРЅС‹С… Р»РёРЅРёР№ */
+/** Проверка и удаление заполненных линий */
 function clearLines() {
     let rowsToClear = [];
     let colsToClear = [];
     let clearedCellsCoords = [];
-    const cellsToClearSet = new Set(); // РСЃРїРѕР»СЊР·СѓРµРј Set РґР»СЏ СѓРЅРёРєР°Р»СЊРЅС‹С… РєРѕРѕСЂРґРёРЅР°С‚ РІ С„РѕСЂРјР°С‚Рµ "r-c"
+    const cellsToClearSet = new Set(); // Используем Set для уникальных координат в формате "r-c"
 
-    // 1. РќР°Р№С‚Рё РІСЃРµ РїРѕР»РЅС‹Рµ СЃС‚СЂРѕРєРё
+    // 1. Найти все полные строки
     for (let r = 0; r < GRID_SIZE; r++) {
         if (grid[r].every(cell => cell !== null)) {
             rowsToClear.push(r);
         }
     }
 
-    // 2. РќР°Р№С‚Рё РІСЃРµ РїРѕР»РЅС‹Рµ СЃС‚РѕР»Р±С†С‹
+    // 2. Найти все полные столбцы
     for (let c = 0; c < GRID_SIZE; c++) {
         let colFull = true;
         for (let r = 0; r < GRID_SIZE; r++) {
@@ -491,7 +526,7 @@ function clearLines() {
         }
     }
 
-    // 3. РЎРѕР±СЂР°С‚СЊ СѓРЅРёРєР°Р»СЊРЅС‹Рµ РєРѕРѕСЂРґРёРЅР°С‚С‹ РІСЃРµС… СЏС‡РµРµРє РІ РїРѕР»РЅС‹С… СЃС‚СЂРѕРєР°С…/СЃС‚РѕР»Р±С†Р°С…
+    // 3. Собрать уникальные координаты всех ячеек в полных строках/столбцах
     for (const r of rowsToClear) {
         for (let c = 0; c < GRID_SIZE; c++) {
             cellsToClearSet.add(`${r}-${c}`);
@@ -499,47 +534,47 @@ function clearLines() {
     }
     for (const c of colsToClear) {
         for (let r = 0; r < GRID_SIZE; r++) {
-            // Р”РѕР±Р°РІР»СЏРµРј, РґР°Р¶Рµ РµСЃР»Рё СѓР¶Рµ РµСЃС‚СЊ РѕС‚ СЃС‚СЂРѕРєРё (Set РѕР±РµСЃРїРµС‡РёС‚ СѓРЅРёРєР°Р»СЊРЅРѕСЃС‚СЊ)
-             if (grid[r][c] !== null) { // РЈР±РµРґРёРјСЃСЏ, С‡С‚Рѕ СЏС‡РµР№РєР° РЅРµ РїСѓСЃС‚Р°
+            // Добавляем, даже если уже есть от строки (Set обеспечит уникальность)
+             if (grid[r][c] !== null) { // Убедимся, что ячейка не пуста
                  cellsToClearSet.add(`${r}-${c}`);
              }
         }
     }
 
-    // 4. РџСЂРµРѕР±СЂР°Р·РѕРІР°С‚СЊ Set РІ РјР°СЃСЃРёРІ РѕР±СЉРµРєС‚РѕРІ Рё РѕС‡РёСЃС‚РёС‚СЊ grid
+    // 4. Преобразовать Set в массив объектов и очистить grid
     cellsToClearSet.forEach(coordString => {
         const [rStr, cStr] = coordString.split('-');
         const r = parseInt(rStr);
         const c = parseInt(cStr);
         
-        // РџСЂРѕРІРµСЂСЏРµРј РµС‰Рµ СЂР°Р·, С‡С‚Рѕ РєРѕРѕСЂРґРёРЅР°С‚С‹ РІР°Р»РёРґРЅС‹ Рё СЏС‡РµР№РєР° РЅРµ РїСѓСЃС‚Р°
+        // Проверяем еще раз, что координаты валидны и ячейка не пуста
         if (r >= 0 && r < GRID_SIZE && c >= 0 && c < GRID_SIZE && grid[r][c] !== null) {
             clearedCellsCoords.push({ r, c });
-            grid[r][c] = null; // РћС‡РёС‰Р°РµРј СЏС‡РµР№РєСѓ РІ РјР°СЃСЃРёРІРµ grid
+            grid[r][c] = null; // Очищаем ячейку в массиве grid
         }
     });
 
     console.log(`clearLines: Found ${rowsToClear.length} rows, ${colsToClear.length} cols. Clearing ${clearedCellsCoords.length} unique cells.`);
 
-    // Р’РѕР·РІСЂР°С‰Р°РµРј РјР°СЃСЃРёРІ РєРѕРѕСЂРґРёРЅР°С‚ РѕС‡РёС‰РµРЅРЅС‹С… СЏС‡РµРµРє
+    // Возвращаем массив координат очищенных ячеек
     return clearedCellsCoords; 
 }
 
-/** РџСЂРѕРІРµСЂРєР° РЅР° РєРѕРЅРµС† РёРіСЂС‹ */
+/** Проверка на конец игры */
 function isGameOver() {
     for (const block of currentBlocks) {
         if (block === null) continue;
 
-        // РџСЂРѕРІРµСЂСЏРµРј РІРѕР·РјРѕР¶РЅРѕСЃС‚СЊ СЂР°Р·РјРµС‰РµРЅРёСЏ РІ Р»СЋР±РѕРј РјРµСЃС‚Рµ РїРѕР»СЏ
+        // Проверяем возможность размещения в любом месте поля
         for (let r = 0; r < GRID_SIZE; r++) {
             for (let c = 0; c < GRID_SIZE; c++) {
                 if (isValidPlacement(r, c, block)) {
-                    return false; // Р•СЃС‚СЊ РєСѓРґР° СЂР°Р·РјРµСЃС‚РёС‚СЊ Р±Р»РѕРє
+                    return false; // Есть куда разместить блок
                 }
             }
         }
         
-        // Р•СЃР»Рё Р±Р»РѕРє РјРѕР¶РЅРѕ РІСЂР°С‰Р°С‚СЊ, РїСЂРѕРІРµСЂСЏРµРј РІСЃРµ РІР°СЂРёР°РЅС‚С‹
+        // Если блок можно вращать, проверяем все варианты
         if (block.rotations) {
             const originalRotation = block.currentRotation;
             
@@ -554,7 +589,7 @@ function isGameOver() {
                 for (let r = 0; r < GRID_SIZE; r++) {
                     for (let c = 0; c < GRID_SIZE; c++) {
                         if (isValidPlacement(r, c, rotatedBlock)) {
-                            return false; // РњРѕР¶РЅРѕ СЂР°Р·РјРµСЃС‚РёС‚СЊ РїРѕРІРµСЂРЅСѓС‚С‹Р№ Р±Р»РѕРє
+                            return false; // Можно разместить повернутый блок
                         }
                     }
                 }
@@ -562,21 +597,21 @@ function isGameOver() {
         }
     }
     
-    // Р•СЃР»Рё РЅРё РѕРґРёРЅ Р±Р»РѕРє РЅРµР»СЊР·СЏ СЂР°Р·РјРµСЃС‚РёС‚СЊ
+    // Если ни один блок нельзя разместить
     return true;
 }
 
-/** Р’СЂР°С‰РµРЅРёРµ РІС‹Р±СЂР°РЅРЅРѕРіРѕ Р±Р»РѕРєР° */
+/** Вращение выбранного блока */
 function rotateSelectedBlock() {
     if (!selectedBlock || !selectedBlock.rotations) {
         return;
     }
 
-    // РћР±РЅРѕРІР»СЏРµРј РІСЂР°С‰РµРЅРёРµ РІ selectedBlock
+    // Обновляем вращение в selectedBlock
     selectedBlock.currentRotation = (selectedBlock.currentRotation + 1) % selectedBlock.rotations.length;
     selectedBlock.cells = selectedBlock.rotations[selectedBlock.currentRotation];
 
-    // РћР±РЅРѕРІР»СЏРµРј Р±Р»РѕРє РІ РјР°СЃСЃРёРІРµ currentBlocks
+    // Обновляем блок в массиве currentBlocks
     const blockIndex = selectedBlock.index;
     if (blockIndex !== undefined && currentBlocks[blockIndex]) {
         currentBlocks[blockIndex].currentRotation = selectedBlock.currentRotation;
@@ -585,7 +620,7 @@ function rotateSelectedBlock() {
     }
 }
 
-// Р”РѕР±Р°РІР»РµРЅРёРµ СЃС‚РёР»РµР№ РґР»СЏ РїРѕРґСЃРІРµС‚РєРё
+// Добавление стилей для подсветки
 function addHighlightStyles() {
     const style = document.createElement('style');
     style.textContent = `
@@ -602,7 +637,7 @@ function addHighlightStyles() {
     document.head.appendChild(style);
 }
 
-// РџРµСЂРµСЂРёСЃРѕРІС‹РІР°РµС‚ СЃРµС‚РєСѓ Рё Р±Р»РѕРєРё СЃ СѓС‡РµС‚РѕРј С‚РµРєСѓС‰РёС… СЂР°Р·РјРµСЂРѕРІ
+// Перерисовывает сетку и блоки с учетом текущих размеров
 function redrawUI() {
     console.log("Redrawing UI due to resize...");
     
@@ -611,46 +646,46 @@ function redrawUI() {
     gridContainer.style.gridTemplateColumns = `repeat(${GRID_SIZE}, ${cellSize}px)`;
     gridContainer.style.gridTemplateRows = `repeat(${GRID_SIZE}, ${cellSize}px)`;
 
-    // РџРµСЂРµСЂРёСЃРѕРІС‹РІР°РµРј СЃРµС‚РєСѓ (СЃРѕС…СЂР°РЅСЏСЏ СЃРѕСЃС‚РѕСЏРЅРёРµ)
+    // Перерисовываем сетку (сохраняя состояние)
     renderGrid(); 
-    // РџРµСЂРµСЂРёСЃРѕРІС‹РІР°РµРј РїСЂРµРІСЊСЋ
+    // Перерисовываем превью
     renderNextBlocks();
 }
 
-// Р”РѕР±Р°РІР»СЏРµРј РѕР±СЂР°Р±РѕС‚С‡РёРє РёР·РјРµРЅРµРЅРёСЏ СЂР°Р·РјРµСЂР° РѕРєРЅР° РґР»СЏ РїРµСЂРµСЃС‡РµС‚Р° СЃРµС‚РєРё
+// Добавляем обработчик изменения размера окна для пересчета сетки
 let resizeTimeout;
 window.addEventListener('resize', () => {
     clearTimeout(resizeTimeout);
-    resizeTimeout = setTimeout(redrawUI, 250); // Р’С‹Р·С‹РІР°РµРј С‚РѕР»СЊРєРѕ РїРµСЂРµСЂРёСЃРѕРІРєСѓ UI
+    resizeTimeout = setTimeout(redrawUI, 250); // Вызываем только перерисовку UI
 });
 
 // --- Touch Event Handlers --- 
 
 function handleTouchStart(event) {
-    // РРіРЅРѕСЂРёСЂСѓРµРј, РµСЃР»Рё РєР°СЃР°РЅРёРµ РЅРµ РѕРґРЅРёРј РїР°Р»СЊС†РµРј
+    // Игнорируем, если касание не одним пальцем
     if (event.touches.length !== 1) return;
-    // РџСЂРµРґРѕС‚РІСЂР°С‰Р°РµРј РїСЂРѕРєСЂСѓС‚РєСѓ СЃС‚СЂР°РЅРёС†С‹ РІРѕ РІСЂРµРјСЏ РїРµСЂРµС‚Р°СЃРєРёРІР°РЅРёСЏ Р±Р»РѕРєР°
+    // Предотвращаем прокрутку страницы во время перетаскивания блока
     event.preventDefault();
 
     const touch = event.touches[0];
-    const blockPreview = event.currentTarget; // Р­С‚Рѕ .block-preview
+    const blockPreview = event.currentTarget; // Это .block-preview
     touchTargetBlockIndex = parseInt(blockPreview.dataset.blockIndex);
     selectedBlock = {...currentBlocks[touchTargetBlockIndex], index: touchTargetBlockIndex};
 
     if (!selectedBlock) return;
 
-    // РЎРѕР·РґР°РµРј РІРёР·СѓР°Р»СЊРЅС‹Р№ РєР»РѕРЅ Р±Р»РѕРєР° РґР»СЏ РїРµСЂРµС‚Р°СЃРєРёРІР°РЅРёСЏ
+    // Создаем визуальный клон блока для перетаскивания
     if (!draggingElement) {
         draggingElement = document.createElement('div');
         draggingElement.id = 'dragging-block';
-        // РљРѕРїРёСЂСѓРµРј РјРёРЅРё-СЃРµС‚РєСѓ РёР· РїСЂРµРІСЊСЋ
+        // Копируем мини-сетку из превью
         const previewGrid = blockPreview.querySelector('div'); 
         if (previewGrid) {
             draggingElement.appendChild(previewGrid.cloneNode(true));
-            // РњРѕР¶РЅРѕ РґРѕР±Р°РІРёС‚СЊ РјР°СЃС€С‚Р°Р±РёСЂРѕРІР°РЅРёРµ, РµСЃР»Рё РЅСѓР¶РЅРѕ
+            // Можно добавить масштабирование, если нужно
             // draggingElement.style.transform = 'scale(1.1)'; 
         } else {
-            // Р—Р°РїР°СЃРЅРѕР№ РІР°СЂРёР°РЅС‚, РµСЃР»Рё РЅРµ РЅР°С€Р»Рё СЃРµС‚РєСѓ
+            // Запасной вариант, если не нашли сетку
             draggingElement.style.width = '60px';
             draggingElement.style.height = '60px';
             draggingElement.style.backgroundColor = selectedBlock.color;
@@ -658,32 +693,32 @@ function handleTouchStart(event) {
         document.body.appendChild(draggingElement);
     }
 
-    // РќР°С‡Р°Р»СЊРЅС‹Рµ РєРѕРѕСЂРґРёРЅР°С‚С‹ РєР°СЃР°РЅРёСЏ
+    // Начальные координаты касания
     touchStartX = touch.clientX;
     touchStartY = touch.clientY;
 
-    // РџРѕР·РёС†РёРѕРЅРёСЂСѓРµРј РєР»РѕРЅ РїРѕРґ РїР°Р»СЊС†РµРј
+    // Позиционируем клон под пальцем
     positionDraggingElement(touch.clientX, touch.clientY);
 
-    // Р”РѕР±Р°РІР»СЏРµРј РѕР±СЂР°Р±РѕС‚С‡РёРєРё РґРІРёР¶РµРЅРёСЏ Рё РѕС‚РїСѓСЃРєР°РЅРёСЏ РЅР° РІРµСЃСЊ РґРѕРєСѓРјРµРЅС‚
+    // Добавляем обработчики движения и отпускания на весь документ
     document.addEventListener('touchmove', handleTouchMove, { passive: false });
     document.addEventListener('touchend', handleTouchEnd);
-    document.addEventListener('touchcancel', handleTouchEnd); // РќР° СЃР»СѓС‡Р°Р№ РѕС‚РјРµРЅС‹ РєР°СЃР°РЅРёСЏ
+    document.addEventListener('touchcancel', handleTouchEnd); // На случай отмены касания
 
-    console.log("Touch Start - С‚Р°С‰РёРј Р±Р»РѕРє:", selectedBlock.type);
+    console.log("Touch Start - тащим блок:", selectedBlock.type);
 }
 
 function handleTouchMove(event) {
     if (!draggingElement || event.touches.length !== 1) return;
-    // РџСЂРµРґРѕС‚РІСЂР°С‰Р°РµРј РїСЂРѕРєСЂСѓС‚РєСѓ
+    // Предотвращаем прокрутку
     event.preventDefault(); 
 
     const touch = event.touches[0];
     
-    // РџРµСЂРµРјРµС‰Р°РµРј РєР»РѕРЅ Р±Р»РѕРєР°
+    // Перемещаем клон блока
     positionDraggingElement(touch.clientX, touch.clientY);
 
-    // РћРїСЂРµРґРµР»СЏРµРј СЌР»РµРјРµРЅС‚ РїРѕРґ РїР°Р»СЊС†РµРј
+    // Определяем элемент под пальцем
     const elementUnderTouch = document.elementFromPoint(touch.clientX, touch.clientY);
     const cell = elementUnderTouch ? elementUnderTouch.closest('.grid-cell') : null;
 
@@ -694,15 +729,15 @@ function handleTouchMove(event) {
             selectedBlock
         );
     } else {
-        clearHighlight(); // РћС‡РёС‰Р°РµРј РїРѕРґСЃРІРµС‚РєСѓ, РµСЃР»Рё РїР°Р»РµС† РЅРµ РЅР°Рґ СЃРµС‚РєРѕР№
+        clearHighlight(); // Очищаем подсветку, если палец не над сеткой
     }
 }
 
 function handleTouchEnd(event) {
     if (!draggingElement) return;
 
-    // РћРїСЂРµРґРµР»СЏРµРј СЌР»РµРјРµРЅС‚ РїРѕРґ С‚РѕС‡РєРѕР№ РѕС‚РїСѓСЃРєР°РЅРёСЏ
-    // РСЃРїРѕР»СЊР·СѓРµРј last known position РёР»Рё changedTouches[0] РµСЃР»Рё РµСЃС‚СЊ
+    // Определяем элемент под точкой отпускания
+    // Используем last known position или changedTouches[0] если есть
     const lastTouch = event.changedTouches[0];
     const endX = lastTouch.clientX;
     const endY = lastTouch.clientY;
@@ -722,10 +757,10 @@ function handleTouchEnd(event) {
             currentBlocks[blockIndex] = null;
             handlePlacementLogic(blockIndex);
         } 
-        // РќРµ СЃР±СЂР°СЃС‹РІР°РµРј selectedBlock Р·РґРµСЃСЊ, РѕРЅ СЃР±СЂРѕСЃРёС‚СЃСЏ РЅРёР¶Рµ
+        // Не сбрасываем selectedBlock здесь, он сбросится ниже
     }
 
-    // РЈР±РёСЂР°РµРј РєР»РѕРЅ Р±Р»РѕРєР° Рё СЃР±СЂР°СЃС‹РІР°РµРј СЃРѕСЃС‚РѕСЏРЅРёРµ
+    // Убираем клон блока и сбрасываем состояние
     if (draggingElement) {
         draggingElement.remove();
         draggingElement = null;
@@ -733,42 +768,42 @@ function handleTouchEnd(event) {
     selectedBlock = null;
     touchTargetBlockIndex = -1;
 
-    // РЈРґР°Р»СЏРµРј РѕР±СЂР°Р±РѕС‚С‡РёРєРё СЃ РґРѕРєСѓРјРµРЅС‚Р°
+    // Удаляем обработчики с документа
     document.removeEventListener('touchmove', handleTouchMove);
     document.removeEventListener('touchend', handleTouchEnd);
     document.removeEventListener('touchcancel', handleTouchEnd);
 }
 
-// Р’СЃРїРѕРјРѕРіР°С‚РµР»СЊРЅР°СЏ С„СѓРЅРєС†РёСЏ РґР»СЏ РїРѕР·РёС†РёРѕРЅРёСЂРѕРІР°РЅРёСЏ РїРµСЂРµС‚Р°СЃРєРёРІР°РµРјРѕРіРѕ СЌР»РµРјРµРЅС‚Р°
+// Вспомогательная функция для позиционирования перетаскиваемого элемента
 function positionDraggingElement(x, y) {
     if (!draggingElement) return;
-    // Р¦РµРЅС‚СЂРёСЂСѓРµРј СЌР»РµРјРµРЅС‚ РїРѕРґ С‚РѕС‡РєРѕР№ РєР°СЃР°РЅРёСЏ (РёР»Рё СЃРѕ СЃРјРµС‰РµРЅРёРµРј)
+    // Центрируем элемент под точкой касания (или со смещением)
     const rect = draggingElement.getBoundingClientRect();
     draggingElement.style.left = `${x - rect.width / 2}px`;
     draggingElement.style.top = `${y - rect.height / 2}px`;
 }
 
-// РќРѕРІР°СЏ С„СѓРЅРєС†РёСЏ РґР»СЏ РѕР±СЂР°Р±РѕС‚РєРё Р»РѕРіРёРєРё РїРѕСЃР»Рµ СЂР°Р·РјРµС‰РµРЅРёСЏ Р±Р»РѕРєР°
+// Новая функция для обработки логики после размещения блока
 function handlePlacementLogic(placedBlockIndex) {
     
-    renderGrid(); // РџРѕРєР°Р·С‹РІР°РµРј СЂР°Р·РјРµС‰РµРЅРЅС‹Р№ Р±Р»РѕРє
-    renderNextBlocks(); // РћР±РЅРѕРІР»СЏРµРј РїР°РЅРµР»СЊ РїСЂРµРІСЊСЋ
+    renderGrid(); 
+    renderNextBlocks(); 
+    triggerHapticFeedback('light'); // <<-- Вибрация при размещении
 
-    const clearedCellsCoords = clearLines(); // РџРѕР»СѓС‡Р°РµРј РєРѕРѕСЂРґРёРЅР°С‚С‹ РѕС‡РёС‰РµРЅРЅС‹С… СЏС‡РµРµРє
+    const clearedCellsCoords = clearLines();
 
-    // Р¤СѓРЅРєС†РёСЏ, РІС‹РїРѕР»РЅСЏСЋС‰Р°СЏ РїСЂРѕРІРµСЂРєРё РїРѕСЃР»Рµ РІСЃРµС… РґРµР№СЃС‚РІРёР№ (РІРєР»СЋС‡Р°СЏ Р°РЅРёРјР°С†РёСЋ)
     const runPostPlacementChecks = () => {
-        // РџСЂРѕРІРµСЂРєР° РЅР° РЅРµРѕР±С…РѕРґРёРјРѕСЃС‚СЊ РіРµРЅРµСЂР°С†РёРё РЅРѕРІС‹С… Р±Р»РѕРєРѕРІ
+        // Проверка на необходимость генерации новых блоков
         if (currentBlocks.every(b => b === null)) {
             console.log("All blocks placed, generating new ones.");
             generateNextBlocks();
         }
-        // РџСЂРѕРІРµСЂРєР° РЅР° РєРѕРЅРµС† РёРіСЂС‹ (РїРѕСЃР»Рµ РІРѕР·РјРѕР¶РЅРѕР№ РіРµРЅРµСЂР°С†РёРё РЅРѕРІС‹С… Р±Р»РѕРєРѕРІ)
+        // Проверка на конец игры (после возможной генерации новых блоков)
         if (isGameOver()) {
              console.log("Game Over check returned true.");
-             // РСЃРїРѕР»СЊР·СѓРµРј setTimeout РґР»СЏ alert, С‡С‚РѕР±С‹ РѕРЅ РЅРµ Р±Р»РѕРєРёСЂРѕРІР°Р» СЂРµРЅРґРµСЂРёРЅРі
+             // Используем setTimeout для alert, чтобы он не блокировал рендеринг
              setTimeout(() => {
-                  alert(`РРіСЂР° РѕРєРѕРЅС‡РµРЅР°! Р’Р°С€ СЃС‡С‘С‚: ${score}`);
+                  alert(`Игра окончена! Ваш счёт: ${score}`);
              }, 50); 
         } else {
             console.log("Game Over check returned false.");
@@ -776,33 +811,62 @@ function handlePlacementLogic(placedBlockIndex) {
     };
 
     if (clearedCellsCoords.length > 0) {
-        // Р•СЃР»Рё РµСЃС‚СЊ С‡С‚Рѕ РѕС‡РёС‰Р°С‚СЊ - Р·Р°РїСѓСЃРєР°РµРј Р°РЅРёРјР°С†РёСЋ
+        triggerHapticFeedback('medium'); // <<-- Вибрация при очистке линий (перед анимацией)
         console.log(`Starting clearing animation for ${clearedCellsCoords.length} cells.`);
         clearedCellsCoords.forEach(coord => {
             const cellElement = gridContainer.querySelector(`[data-row='${coord.r}'][data-col='${coord.c}']`);
             if (cellElement) {
-                 // РЈР±РµРґРёРјСЃСЏ С‡С‚Рѕ Сѓ СЏС‡РµР№РєРё РµСЃС‚СЊ С†РІРµС‚ РїРµСЂРµРґ Р°РЅРёРјР°С†РёРµР№
-                 // (Р­С‚Рѕ РЅСѓР¶РЅРѕ РµСЃР»Рё renderGrid РЅРµ Р±С‹Р» РІС‹Р·РІР°РЅ РїРѕСЃР»Рµ placeBlock)
-                 // cellElement.style.backgroundColor = grid[coord.r][coord.c] || var(--cell-bg-color); // РЈР¶Рµ РЅРµ РЅСѓР¶РЅРѕ, С‚.Рє. grid РѕС‡РёС‰РµРЅ
                  cellElement.classList.add('clearing');
             }
         });
 
-        // РџРѕСЃР»Рµ Р°РЅРёРјР°С†РёРё РѕР±РЅРѕРІР»СЏРµРј СЃС‡РµС‚, UI Рё Р·Р°РїСѓСЃРєР°РµРј РїСЂРѕРІРµСЂРєРё
         setTimeout(() => {
             console.log("Clearing animation finished.");
-            renderGrid(); // РћР±РЅРѕРІР»СЏРµРј СЃРµС‚РєСѓ, С‡С‚РѕР±С‹ РїРѕРєР°Р·Р°С‚СЊ РїСѓСЃС‚С‹Рµ СЏС‡РµР№РєРё
-            updateScore(score + clearedCellsCoords.length * 100); 
-            // РЈРґР°Р»СЏРµРј РєР»Р°СЃСЃ Р°РЅРёРјР°С†РёРё
+            renderGrid(); 
+            updateScore(score + clearedCellsCoords.length * 100);
             document.querySelectorAll('.grid-cell.clearing').forEach(cell => cell.classList.remove('clearing'));
-            
-            runPostPlacementChecks(); // Р—Р°РїСѓСЃРєР°РµРј РїСЂРѕРІРµСЂРєРё Р·РґРµСЃСЊ
-
-        }, 300); // Р”Р»РёС‚РµР»СЊРЅРѕСЃС‚СЊ Р°РЅРёРјР°С†РёРё
-
+            runPostPlacementChecks();
+        }, 300);
     } else {
-        // Р•СЃР»Рё РЅРёС‡РµРіРѕ РЅРµ РѕС‡РёС‰РµРЅРѕ, СЃСЂР°Р·Сѓ Р·Р°РїСѓСЃРєР°РµРј РїСЂРѕРІРµСЂРєРё
         console.log("No lines cleared, running checks immediately.");
         runPostPlacementChecks();
+    }
+}
+
+// --- Вспомогательная функция для вибрации ---
+function triggerHapticFeedback(type) {
+    if (!isVibrationEnabled) return; // Проверяем настройку
+
+    try {
+        if (window.Telegram?.WebApp?.HapticFeedback) {
+            const haptic = window.Telegram.WebApp.HapticFeedback;
+            switch (type) {
+                case 'light':
+                    haptic.impactOccurred('light');
+                    break;
+                case 'medium':
+                    haptic.impactOccurred('medium');
+                    break;
+                case 'heavy':
+                    haptic.impactOccurred('heavy');
+                    break;
+                case 'success':
+                    haptic.notificationOccurred('success');
+                    break;
+                case 'error':
+                    haptic.notificationOccurred('error');
+                    break;
+                case 'warning':
+                    haptic.notificationOccurred('warning');
+                    break;
+                default:
+                    console.warn('Unknown haptic type:', type);
+            }
+            console.log('Haptic feedback triggered:', type); // Отладка
+        } else {
+            // console.log('Haptic feedback not available.'); // Можно раскомментировать для отладки в браузере
+        }
+    } catch (error) {
+        console.error('Error triggering haptic feedback:', error);
     }
 } 
