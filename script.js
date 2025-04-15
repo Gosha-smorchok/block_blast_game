@@ -61,15 +61,18 @@ let dragStartTimer = null; // <<-- Таймер для задержки нача
 const DRAG_START_DELAY = 250; // ms - задержка для начала перетаскивания
 const DRAG_MOVE_THRESHOLD = 5; // pixels - порог движения для отмены tap
 let isDragging = false; // <<-- Флаг, что идет именно перетаскивание
+let highScore = 0; // <<-- Добавляем переменную для рекорда
 
 // --- Элементы DOM ---
 let gameContainer;
 let gridContainer;
 let scoreDisplay;
+let highScoreDisplay; // <<-- Добавляем элемент для рекорда
 let nextBlocksPanel;
 let rotateButton;
 let newGameButton;
 let vibrationToggle; // Добавляем элемент чекбокса
+let shareButton; // <<-- Добавляем кнопку Поделиться
 
 // Инициализация после загрузки DOM
 document.addEventListener('DOMContentLoaded', function() {
@@ -84,6 +87,8 @@ document.addEventListener('DOMContentLoaded', function() {
     const modalNewGameButton = document.getElementById('modal-new-game');
     const modalContinueButton = document.getElementById('modal-continue');
     vibrationToggle = document.getElementById('vibration-toggle'); // Получаем чекбокс
+    highScoreDisplay = document.getElementById('high-score-board'); // <<-- Получаем элемент рекорда
+    shareButton = document.getElementById('share-button'); // <<-- Получаем кнопку Поделиться
 
     if(settingsButton && settingsModal) {
         settingsButton.addEventListener('click', () => { 
@@ -125,11 +130,24 @@ document.addEventListener('DOMContentLoaded', function() {
     rotateButton?.addEventListener('click', rotateSelectedBlock);
     newGameButton?.addEventListener('click', newGame);
     addHighlightStyles();
+    // --- Добавляем обработчик для кнопки Поделиться ---
+    if (shareButton) {
+        shareButton.addEventListener('click', handleShareClick);
+    }
+    // --- Конец добавления обработчика ---
     
     // Переносим вызов newGame внутрь DOMContentLoaded после инициализации элементов
     initializeGrid();
     newGame();
     updateGridRectCache(); // <<-- Первичное получение геометрии сетки
+
+    // --- Загрузка рекорда ---
+    const savedHighScore = localStorage.getItem('blockBlastHighScore');
+    if (savedHighScore !== null) {
+        highScore = parseInt(savedHighScore, 10) || 0; // Parse as integer
+    }
+    updateHighScoreDisplay(); // Отобразить загруженный рекорд
+    // --- Конец загрузки рекорда ---
 
     // Загрузка состояния вибрации из localStorage
     const savedVibrationSetting = localStorage.getItem('blockBlastVibration');
@@ -341,6 +359,7 @@ function newGame() {
     }
     generateNextBlocks();
     // renderGrid(); // Уже вызван в initializeGrid или выше
+    updateHighScoreDisplay(); // <<-- Обновляем отображение рекорда при новой игре
 }
 
 // --- Обработчики событий ---
@@ -961,9 +980,27 @@ function handlePlacementLogic(placedBlockIndex) {
         }
         if (isGameOver()) {
              console.log("Game Over check returned true.");
+             // --- Проверка и сохранение рекорда ---
+             let isNewHighScore = false;
+             if (score > highScore) {
+                 highScore = score;
+                 localStorage.setItem('blockBlastHighScore', highScore);
+                 updateHighScoreDisplay(); // Обновляем отображение сразу
+                 console.log("New high score saved:", highScore);
+                 triggerHapticFeedback('success'); // Вибрация при новом рекорде
+                 isNewHighScore = true;
+             }
+             // --- Конец проверки и сохранения рекорда ---
              setTimeout(() => {
-                  alert(`Игра окончена! Ваш счёт: ${score}`);
-             }, 50); 
+                  // Формируем сообщение
+                  let gameOverMessage = `Игра окончена! Ваш счёт: ${score}.`;
+                  if (isNewHighScore) {
+                      gameOverMessage += ` Новый рекорд!`;
+                  } else {
+                      gameOverMessage += ` Рекорд: ${highScore}.`;
+                  }
+                  alert(gameOverMessage);
+             }, 50);
         } else {
             console.log("Game Over check returned false.");
         }
@@ -989,6 +1026,15 @@ function handlePlacementLogic(placedBlockIndex) {
     } else {
         console.log("No lines cleared, running checks immediately.");
         runPostPlacementChecks();
+    }
+}
+
+// --- Вспомогательная функция для обновления рекорда ---
+function updateHighScoreDisplay() {
+    if (highScoreDisplay) {
+        highScoreDisplay.innerHTML = `Рекорд: <span>${highScore}</span>`; // Используем innerHTML для вставки span
+    } else {
+        console.error("High score display element not found!");
     }
 }
 
@@ -1030,5 +1076,27 @@ function triggerHapticFeedback(type) {
     }
 }
 
+// --- Новая функция для обработки клика по кнопке Поделиться ---
+function handleShareClick() {
+    try {
+        if (window.Telegram?.WebApp) {
+            const botUsername = 'BlockBlastRu_bot'; // Имя вашего бота
+            const shareText = `Я набрал ${score} очков в Block Blast! Мой рекорд: ${highScore}.
+
+Попробуй побить!
+Играть: t.me/${botUsername}`;
+
+            window.Telegram.WebApp.switchInlineQuery(shareText);
+            console.log('Sharing via switchInlineQuery with text:', shareText);
+            triggerHapticFeedback('light'); // Небольшая вибрация при вызове
+        } else {
+            console.warn('Telegram WebApp API not available for sharing.');
+            alert('Функция "Поделиться" доступна только в Telegram.');
+        }
+    } catch (error) {
+        console.error('Error triggering share:', error);
+        alert('Не удалось поделиться результатом.');
+    }
+}
 
 // ... остальные функции ...
