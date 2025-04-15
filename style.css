@@ -1,0 +1,269 @@
+/* Переменные темы (можно переопределить через JS из Telegram) */
+:root {
+    --tg-theme-bg-color: #1C2A3A; /* Темно-синий фон */
+    --tg-theme-text-color: #FFFFFF;
+    --tg-theme-button-color: #007AFF;
+    --grid-bg-color: #121E2B; /* Фон сетки темнее фона страницы */
+    --cell-bg-color: #2C3A4A; /* Цвет пустой клетки */
+    --cell-border-color: #121E2B; /* Цвет границы клетки (такой же как фон сетки для эффекта) */
+    --block-border-color: rgba(0, 0, 0, 0.2);
+}
+
+/* Основные стили */
+body {
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+    display: flex;
+    justify-content: center;
+    align-items: flex-start; /* Выравниваем по верху */
+    min-height: 100vh;
+    margin: 0;
+    background-color: var(--tg-theme-bg-color);
+    color: var(--tg-theme-text-color);
+    padding-top: 20px; /* Отступ сверху */
+}
+
+#game-container {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 25px; /* Увеличил расстояние */
+    max-width: 600px; /* Увеличиваем еще раз максимальную ширину */
+    width: 95%;
+}
+
+/* Стили для заголовка */
+#header {
+    display: flex;
+    justify-content: space-between; /* Разносим счет и кнопку настроек */
+    align-items: center;
+    width: 100%;
+}
+
+#score-board {
+    font-size: 1.8em; /* Увеличил шрифт */
+    font-weight: bold;
+    display: flex; /* Для выравнивания иконки и текста */
+    align-items: center;
+    gap: 8px; /* Расстояние между иконкой и счетом */
+    color: #FFCC00; /* Цвет короны и счета */
+}
+
+#crown-icon {
+    width: 28px; /* Немного увеличил иконку */
+    height: 28px;
+}
+
+#settings-button {
+    background: none;
+    border: none;
+    padding: 5px;
+    cursor: pointer;
+}
+
+#settings-button svg {
+    width: 30px; /* Увеличил иконку настроек */
+    height: 30px;
+    fill: var(--tg-theme-text-color);
+    opacity: 0.8;
+}
+
+#settings-button:hover svg {
+    opacity: 1;
+}
+
+/* Стили для сетки */
+#grid-container {
+    display: grid;
+    /* Размер будет задан в JS, чтобы зависеть от ширины экрана */
+    /* grid-template-columns: repeat(8, 40px); */
+    /* grid-template-rows: repeat(8, 40px); */
+    gap: 1px; /* Минимальный зазор */
+    border: none; /* Убрал границу сетки */
+    background-color: var(--grid-bg-color);
+    /* width: calc(8 * 40px + 7 * 1px); */ /* Рассчитаем в JS */
+    /* height: calc(8 * 40px + 7 * 1px); */
+    padding: 4px; /* Небольшой внутренний отступ */
+    border-radius: 8px; /* Скругление углов сетки */
+    box-shadow: 0 4px 10px rgba(0, 0, 0, 0.3); /* Тень для глубины */
+}
+
+.grid-cell {
+    background-color: var(--cell-bg-color);
+    border: none; /* Убрал границу */
+    border-radius: 4px; /* Скругление углов ячейки */
+    /* Добавим стиль для занятых клеток */
+}
+
+.grid-cell.occupied {
+    border: 1px solid var(--block-border-color);
+    box-shadow: inset 0 2px 2px rgba(255, 255, 255, 0.1), /* Внутренняя светлая тень сверху */
+                inset 0 -2px 2px rgba(0, 0, 0, 0.2); /* Внутренняя темная тень снизу */
+}
+
+/* Стили для панели следующих блоков */
+#next-blocks-panel {
+    display: flex;
+    justify-content: space-around;
+    align-items: center; /* Выравниваем по центру вертикали */
+    width: 100%;
+    gap: 15px;
+    margin-top: 10px; /* Небольшой отступ сверху */
+}
+
+.block-preview {
+    width: 80px; /* Вернем чуть больший размер */
+    height: 80px;
+    border: none;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    background-color: transparent;
+    cursor: grab;
+    transition: transform 0.1s ease-out;
+}
+
+.block-preview:active {
+    cursor: grabbing;
+    transform: scale(1.1);
+}
+
+/* Стили для мини-сетки внутри превью */
+.block-preview > div {
+    /* Убрал scale(0.8) чтобы сделать блоки крупнее */
+    /* transform: scale(0.8); */ 
+}
+
+.block-preview > div > div {
+    /* Стили для ячеек мини-сетки (cellDiv in JS) */
+    border-radius: 3px; /* Скругление */
+    border: 1px solid transparent;
+}
+
+.block-preview > div > div[style*="background-color: transparent"] {
+     /* Скрываем пустые ячейки в превью */
+     background-color: transparent !important;
+     border: none;
+}
+
+.block-preview > div > div:not([style*="background-color: transparent"]) {
+    /* Добавляем эффект занятой ячейки к превью */
+    border-color: var(--block-border-color);
+    box-shadow: inset 0 1px 1px rgba(255, 255, 255, 0.1),
+                inset 0 -1px 1px rgba(0, 0, 0, 0.2);
+}
+
+/* Выделение выбранного блока */
+.selected-block {
+    background-color: rgba(255, 255, 255, 0.1);
+    border-radius: 8px;
+    transform: scale(1.05); /* Немного увеличиваем */
+}
+
+/* Стили для кнопок управления (вращение, новая игра) */
+#controls {
+    display: flex; /* Делаем блок видимым */
+    gap: 15px;
+    margin-top: 20px;
+}
+
+button {
+    padding: 12px 25px;
+    font-size: 1.1em;
+    cursor: pointer;
+    background-color: var(--tg-theme-button-color);
+    color: var(--tg-theme-text-color);
+    border: none;
+    border-radius: 8px;
+    font-weight: bold;
+    transition: background-color 0.2s ease;
+}
+
+button:hover {
+    /* filter: brightness(1.1); */ /* Альтернативный ховер */
+    background-color: color-mix(in srgb, var(--tg-theme-button-color) 90%, black);
+}
+
+/* Стили для подсветки */
+.highlight-valid {
+    background-color: rgba(76, 175, 80, 0.4) !important; /* Полупрозрачный зеленый */
+    border-radius: 4px;
+}
+
+.highlight-invalid {
+    background-color: rgba(255, 87, 34, 0.4) !important; /* Полупрозрачный красный */
+    border-radius: 4px;
+}
+
+
+/* Адаптивность (можно доработать) */
+@media (max-width: 400px) {
+    body {
+        padding-top: 15px;
+    }
+    #game-container {
+        gap: 20px;
+    }
+    #score-board {
+        font-size: 1.5em;
+    }
+    #crown-icon {
+        width: 24px;
+        height: 24px;
+    }
+    #settings-button svg {
+        width: 26px;
+        height: 26px;
+    }
+    #timer-display {
+        font-size: 3.5em;
+    }
+    .block-preview {
+        width: 60px;
+        height: 60px;
+    }
+    /* Размеры сетки и ячеек лучше задавать через JS для адаптивности */
+} 
+
+/* Стили для модального окна */
+.modal {
+    display: none; /* Скрыто по умолчанию */
+    position: fixed; /* Фиксированное позиционирование */
+    z-index: 1000; /* Поверх всего остального */
+    left: 0;
+    top: 0;
+    width: 100%;
+    height: 100%;
+    overflow: auto; /* Прокрутка, если контент не влезает */
+    background-color: rgba(0, 0, 0, 0.6); /* Полупрозрачный черный фон */
+    justify-content: center;
+    align-items: center;
+}
+
+.modal.active {
+    display: flex; /* Показываем при добавлении класса active */
+}
+
+.modal-content {
+    background-color: var(--grid-bg-color); /* Фон как у сетки */
+    margin: auto;
+    padding: 30px;
+    border-radius: 10px;
+    box-shadow: 0 5px 15px rgba(0, 0, 0, 0.4);
+    width: 80%;
+    max-width: 300px; /* Макс ширина */
+    text-align: center;
+    color: var(--tg-theme-text-color);
+    display: flex;
+    flex-direction: column;
+    gap: 15px;
+}
+
+.modal-content h2 {
+    margin-top: 0;
+    margin-bottom: 10px;
+}
+
+/* Кнопки внутри модального окна */
+.modal-content button {
+    width: 100%;
+} 
