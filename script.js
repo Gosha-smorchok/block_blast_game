@@ -2,10 +2,10 @@
 const GRID_SIZE = 8;
 const CELL_SIZE = 40; // РЎРѕРІРїР°РґР°РµС‚ СЃ CSS
 const blockColors = {
-    'L': '#34C759',    // Green (L-shape)
-    '2x2': '#007AFF', // Blue (2x2 square)
-    '3x3': '#FF9500', // Orange (3x3 square)
-    '2x3': '#5AC8FA'  // Light Blue (2x3 rect)
+    'L': '#81C784',    // Soft Green 
+    '2x2': '#64B5F6', // Soft Blue
+    '3x3': '#FFB74D', // Soft Orange
+    '2x3': '#4FC3F7'  // Soft Light Blue
 };
 
 const blockShapes = {
@@ -373,32 +373,13 @@ function handleDrop(event) {
         const col = parseInt(targetCell.dataset.col);
         const blockToPlace = currentBlocks[blockIndex];
 
-        if (isValidPlacement(row, col, blockToPlace)) {
+        if (blockToPlace && isValidPlacement(row, col, blockToPlace)) {
+            console.log("Touch End - СЂР°Р·РјРµС‰Р°РµРј Р±Р»РѕРє", blockToPlace.type);
             placeBlock(row, col, blockToPlace);
-            currentBlocks[blockIndex] = null;
-            renderGrid();
-            renderNextBlocks();
-
-            // РџСЂРѕРІРµСЂРєР° Рё РѕС‡РёСЃС‚РєР° Р»РёРЅРёР№
-            const linesCleared = clearLines();
-            if (linesCleared > 0) {
-                // РЎРЅР°С‡Р°Р»Р° РїРµСЂРµСЂРёСЃРѕРІС‹РІР°РµРј СЃРµС‚РєСѓ РїРѕСЃР»Рµ РѕС‡РёСЃС‚РєРё
-                renderGrid(); 
-                // Р—Р°С‚РµРј РѕР±РЅРѕРІР»СЏРµРј СЃС‡РµС‚
-                updateScore(score + linesCleared * 100); 
-            }
-
-            // РџСЂРѕРІРµСЂРєР° РЅР° РЅРµРѕР±С…РѕРґРёРјРѕСЃС‚СЊ РіРµРЅРµСЂР°С†РёРё РЅРѕРІС‹С… Р±Р»РѕРєРѕРІ
-            if (currentBlocks.every(b => b === null)) {
-                generateNextBlocks();
-            }
-
-            // РџСЂРѕРІРµСЂРєР° РЅР° РєРѕРЅРµС† РёРіСЂС‹
-            if (isGameOver()) {
-                setTimeout(() => {
-                    alert(`РРіСЂР° РѕРєРѕРЅС‡РµРЅР°! Р’Р°С€ СЃС‡С‘С‚: ${score}`);
-                }, 300);
-            }
+            currentBlocks[blockIndex] = null; 
+            handlePlacementLogic(blockIndex);
+        } else {
+            console.log("Touch End - РЅРµРІРµСЂРЅРѕРµ СЂР°Р·РјРµС‰РµРЅРёРµ");
         }
     }
     
@@ -433,37 +414,18 @@ function handleGridClick(event) {
     if (cell && selectedBlock) {
         const row = parseInt(cell.dataset.row);
         const col = parseInt(cell.dataset.col);
+        const blockIndex = selectedBlock.index;
+        const blockToPlace = currentBlocks[blockIndex];
 
-        if (isValidPlacement(row, col, selectedBlock)) {
-            placeBlock(row, col, selectedBlock);
-            currentBlocks[selectedBlock.index] = null;
-            
-            document.querySelectorAll('.block-preview').forEach(p => 
+        if (blockToPlace && isValidPlacement(row, col, blockToPlace)) {
+            placeBlock(row, col, blockToPlace);
+            currentBlocks[blockIndex] = null;
+            document.querySelectorAll('.block-preview.selected-block').forEach(p => 
                 p.classList.remove('selected-block'));
-                
-            renderGrid();
-            renderNextBlocks();
-
-            const linesCleared = clearLines();
-            if (linesCleared > 0) {
-                 // РЎРЅР°С‡Р°Р»Р° РїРµСЂРµСЂРёСЃРѕРІС‹РІР°РµРј СЃРµС‚РєСѓ РїРѕСЃР»Рµ РѕС‡РёСЃС‚РєРё
-                renderGrid();
-                // Р—Р°С‚РµРј РѕР±РЅРѕРІР»СЏРµРј СЃС‡РµС‚
-                updateScore(score + linesCleared * 100);
-            }
-
-            if (currentBlocks.every(b => b === null)) {
-                generateNextBlocks();
-            }
-            
-            if (isGameOver()) {
-                setTimeout(() => {
-                    alert(`РРіСЂР° РѕРєРѕРЅС‡РµРЅР°! Р’Р°С€ СЃС‡С‘С‚: ${score}`);
-                }, 300);
-            }
-        }
-        
-        selectedBlock = null;
+            handlePlacementLogic(blockIndex);
+        } 
+        // РЎР±СЂР°СЃС‹РІР°РµРј РІС‹Р±СЂР°РЅРЅС‹Р№ Р±Р»РѕРє РЅРµР·Р°РІРёСЃРёРјРѕ РѕС‚ СѓСЃРїРµС…Р° СЂР°Р·РјРµС‰РµРЅРёСЏ
+        selectedBlock = null; 
     }
 }
 
@@ -503,60 +465,64 @@ function placeBlock(startRow, startCol, block) {
 
 /** РџСЂРѕРІРµСЂРєР° Рё СѓРґР°Р»РµРЅРёРµ Р·Р°РїРѕР»РЅРµРЅРЅС‹С… Р»РёРЅРёР№ */
 function clearLines() {
-    let linesCleared = 0;
     let rowsToClear = [];
     let colsToClear = [];
+    let clearedCellsCoords = [];
+    const cellsToClearSet = new Set(); // РСЃРїРѕР»СЊР·СѓРµРј Set РґР»СЏ СѓРЅРёРєР°Р»СЊРЅС‹С… РєРѕРѕСЂРґРёРЅР°С‚ РІ С„РѕСЂРјР°С‚Рµ "r-c"
 
-    // РџСЂРѕРІРµСЂРєР° СЃС‚СЂРѕРє
+    // 1. РќР°Р№С‚Рё РІСЃРµ РїРѕР»РЅС‹Рµ СЃС‚СЂРѕРєРё
     for (let r = 0; r < GRID_SIZE; r++) {
         if (grid[r].every(cell => cell !== null)) {
             rowsToClear.push(r);
-            linesCleared++;
         }
     }
 
-    // РџСЂРѕРІРµСЂРєР° СЃС‚РѕР»Р±С†РѕРІ
+    // 2. РќР°Р№С‚Рё РІСЃРµ РїРѕР»РЅС‹Рµ СЃС‚РѕР»Р±С†С‹
     for (let c = 0; c < GRID_SIZE; c++) {
         let colFull = true;
         for (let r = 0; r < GRID_SIZE; r++) {
-            // РќРµ СЃС‡РёС‚Р°РµРј СЃС‚РѕР»Р±РµС† РїРѕР»РЅС‹Рј, РµСЃР»Рё РѕРЅ РїРµСЂРµСЃРµРєР°РµС‚ СѓР¶Рµ РЅР°Р№РґРµРЅРЅСѓСЋ РїРѕР»РЅСѓСЋ СЃС‚СЂРѕРєСѓ
-            // С‡С‚РѕР±С‹ РёР·Р±РµР¶Р°С‚СЊ РґРІРѕР№РЅРѕРіРѕ СЃС‡РµС‚Р° РѕС‡РєРѕРІ Рё РґРІРѕР№РЅРѕР№ РѕС‡РёСЃС‚РєРё
-            if (grid[r][c] === null || rowsToClear.includes(r)) {
+            if (grid[r][c] === null) {
                 colFull = false;
                 break;
             }
         }
-        
         if (colFull) {
             colsToClear.push(c);
-            linesCleared++;
         }
     }
 
-    // РћС‡РёСЃС‚РєР° РЅР°Р№РґРµРЅРЅС‹С… СЃС‚СЂРѕРє
-    if (rowsToClear.length > 0) {
-        for (const rowIndex of rowsToClear) {
-            for (let c = 0; c < GRID_SIZE; c++) {
-                grid[rowIndex][c] = null; // РџСЂРѕСЃС‚Рѕ РѕС‡РёС‰Р°РµРј СЏС‡РµР№РєРё
-            }
+    // 3. РЎРѕР±СЂР°С‚СЊ СѓРЅРёРєР°Р»СЊРЅС‹Рµ РєРѕРѕСЂРґРёРЅР°С‚С‹ РІСЃРµС… СЏС‡РµРµРє РІ РїРѕР»РЅС‹С… СЃС‚СЂРѕРєР°С…/СЃС‚РѕР»Р±С†Р°С…
+    for (const r of rowsToClear) {
+        for (let c = 0; c < GRID_SIZE; c++) {
+            cellsToClearSet.add(`${r}-${c}`);
+        }
+    }
+    for (const c of colsToClear) {
+        for (let r = 0; r < GRID_SIZE; r++) {
+            // Р”РѕР±Р°РІР»СЏРµРј, РґР°Р¶Рµ РµСЃР»Рё СѓР¶Рµ РµСЃС‚СЊ РѕС‚ СЃС‚СЂРѕРєРё (Set РѕР±РµСЃРїРµС‡РёС‚ СѓРЅРёРєР°Р»СЊРЅРѕСЃС‚СЊ)
+             if (grid[r][c] !== null) { // РЈР±РµРґРёРјСЃСЏ, С‡С‚Рѕ СЏС‡РµР№РєР° РЅРµ РїСѓСЃС‚Р°
+                 cellsToClearSet.add(`${r}-${c}`);
+             }
         }
     }
 
-    // РћС‡РёСЃС‚РєР° РЅР°Р№РґРµРЅРЅС‹С… СЃС‚РѕР»Р±С†РѕРІ
-    if (colsToClear.length > 0) {
-        for (const colIndex of colsToClear) {
-            for (let r = 0; r < GRID_SIZE; r++) {
-                // РџСЂРѕРїСѓСЃРєР°РµРј СЏС‡РµР№РєРё, РєРѕС‚РѕСЂС‹Рµ СѓР¶Рµ Р±С‹Р»Рё РѕС‡РёС‰РµРЅС‹ РєР°Рє С‡Р°СЃС‚СЊ СЃС‚СЂРѕРєРё
-                if (!rowsToClear.includes(r)) {
-                     grid[r][colIndex] = null; // РџСЂРѕСЃС‚Рѕ РѕС‡РёС‰Р°РµРј СЏС‡РµР№РєРё
-                }
-            }
+    // 4. РџСЂРµРѕР±СЂР°Р·РѕРІР°С‚СЊ Set РІ РјР°СЃСЃРёРІ РѕР±СЉРµРєС‚РѕРІ Рё РѕС‡РёСЃС‚РёС‚СЊ grid
+    cellsToClearSet.forEach(coordString => {
+        const [rStr, cStr] = coordString.split('-');
+        const r = parseInt(rStr);
+        const c = parseInt(cStr);
+        
+        // РџСЂРѕРІРµСЂСЏРµРј РµС‰Рµ СЂР°Р·, С‡С‚Рѕ РєРѕРѕСЂРґРёРЅР°С‚С‹ РІР°Р»РёРґРЅС‹ Рё СЏС‡РµР№РєР° РЅРµ РїСѓСЃС‚Р°
+        if (r >= 0 && r < GRID_SIZE && c >= 0 && c < GRID_SIZE && grid[r][c] !== null) {
+            clearedCellsCoords.push({ r, c });
+            grid[r][c] = null; // РћС‡РёС‰Р°РµРј СЏС‡РµР№РєСѓ РІ РјР°СЃСЃРёРІРµ grid
         }
-    }
+    });
 
-    console.log("Lines cleared in this step:", linesCleared); // РћС‚Р»Р°РґРєР°
-    // Р’РѕР·РІСЂР°С‰Р°РµРј РєРѕР»РёС‡РµСЃС‚РІРѕ РѕС‡РёС‰РµРЅРЅС‹С… Р»РёРЅРёР№ РґР»СЏ РїРѕРґСЃС‡РµС‚Р° РѕС‡РєРѕРІ
-    return linesCleared;
+    console.log(`clearLines: Found ${rowsToClear.length} rows, ${colsToClear.length} cols. Clearing ${clearedCellsCoords.length} unique cells.`);
+
+    // Р’РѕР·РІСЂР°С‰Р°РµРј РјР°СЃСЃРёРІ РєРѕРѕСЂРґРёРЅР°С‚ РѕС‡РёС‰РµРЅРЅС‹С… СЏС‡РµРµРє
+    return clearedCellsCoords; 
 }
 
 /** РџСЂРѕРІРµСЂРєР° РЅР° РєРѕРЅРµС† РёРіСЂС‹ */
@@ -748,33 +714,15 @@ function handleTouchEnd(event) {
     if (targetCell && selectedBlock && touchTargetBlockIndex !== -1) {
         const row = parseInt(targetCell.dataset.row);
         const col = parseInt(targetCell.dataset.col);
-        const blockToPlace = currentBlocks[touchTargetBlockIndex]; // Р‘РµСЂРµРј Р±Р»РѕРє РїРѕ СЃРѕС…СЂР°РЅРµРЅРЅРѕРјСѓ РёРЅРґРµРєСЃСѓ
+        const blockIndex = touchTargetBlockIndex;
+        const blockToPlace = currentBlocks[blockIndex];
 
         if (blockToPlace && isValidPlacement(row, col, blockToPlace)) {
-            console.log("Touch End - СЂР°Р·РјРµС‰Р°РµРј Р±Р»РѕРє", blockToPlace.type);
             placeBlock(row, col, blockToPlace);
-            currentBlocks[touchTargetBlockIndex] = null; // РЈР±РёСЂР°РµРј РёР· РґРѕСЃС‚СѓРїРЅС‹С…
-            renderGrid();
-            renderNextBlocks();
-
-            const linesCleared = clearLines();
-            if (linesCleared > 0) {
-                renderGrid();
-                updateScore(score + linesCleared * 100);
-            }
-
-            if (currentBlocks.every(b => b === null)) {
-                generateNextBlocks();
-            }
-
-            if (isGameOver()) {
-                setTimeout(() => {
-                    alert(`РРіСЂР° РѕРєРѕРЅС‡РµРЅР°! Р’Р°С€ СЃС‡С‘С‚: ${score}`);
-                }, 300);
-            }
-        } else {
-            console.log("Touch End - РЅРµРІРµСЂРЅРѕРµ СЂР°Р·РјРµС‰РµРЅРёРµ");
-        }
+            currentBlocks[blockIndex] = null;
+            handlePlacementLogic(blockIndex);
+        } 
+        // РќРµ СЃР±СЂР°СЃС‹РІР°РµРј selectedBlock Р·РґРµСЃСЊ, РѕРЅ СЃР±СЂРѕСЃРёС‚СЃСЏ РЅРёР¶Рµ
     }
 
     // РЈР±РёСЂР°РµРј РєР»РѕРЅ Р±Р»РѕРєР° Рё СЃР±СЂР°СЃС‹РІР°РµРј СЃРѕСЃС‚РѕСЏРЅРёРµ
@@ -798,4 +746,63 @@ function positionDraggingElement(x, y) {
     const rect = draggingElement.getBoundingClientRect();
     draggingElement.style.left = `${x - rect.width / 2}px`;
     draggingElement.style.top = `${y - rect.height / 2}px`;
+}
+
+// РќРѕРІР°СЏ С„СѓРЅРєС†РёСЏ РґР»СЏ РѕР±СЂР°Р±РѕС‚РєРё Р»РѕРіРёРєРё РїРѕСЃР»Рµ СЂР°Р·РјРµС‰РµРЅРёСЏ Р±Р»РѕРєР°
+function handlePlacementLogic(placedBlockIndex) {
+    
+    renderGrid(); // РџРѕРєР°Р·С‹РІР°РµРј СЂР°Р·РјРµС‰РµРЅРЅС‹Р№ Р±Р»РѕРє
+    renderNextBlocks(); // РћР±РЅРѕРІР»СЏРµРј РїР°РЅРµР»СЊ РїСЂРµРІСЊСЋ
+
+    const clearedCellsCoords = clearLines(); // РџРѕР»СѓС‡Р°РµРј РєРѕРѕСЂРґРёРЅР°С‚С‹ РѕС‡РёС‰РµРЅРЅС‹С… СЏС‡РµРµРє
+
+    // Р¤СѓРЅРєС†РёСЏ, РІС‹РїРѕР»РЅСЏСЋС‰Р°СЏ РїСЂРѕРІРµСЂРєРё РїРѕСЃР»Рµ РІСЃРµС… РґРµР№СЃС‚РІРёР№ (РІРєР»СЋС‡Р°СЏ Р°РЅРёРјР°С†РёСЋ)
+    const runPostPlacementChecks = () => {
+        // РџСЂРѕРІРµСЂРєР° РЅР° РЅРµРѕР±С…РѕРґРёРјРѕСЃС‚СЊ РіРµРЅРµСЂР°С†РёРё РЅРѕРІС‹С… Р±Р»РѕРєРѕРІ
+        if (currentBlocks.every(b => b === null)) {
+            console.log("All blocks placed, generating new ones.");
+            generateNextBlocks();
+        }
+        // РџСЂРѕРІРµСЂРєР° РЅР° РєРѕРЅРµС† РёРіСЂС‹ (РїРѕСЃР»Рµ РІРѕР·РјРѕР¶РЅРѕР№ РіРµРЅРµСЂР°С†РёРё РЅРѕРІС‹С… Р±Р»РѕРєРѕРІ)
+        if (isGameOver()) {
+             console.log("Game Over check returned true.");
+             // РСЃРїРѕР»СЊР·СѓРµРј setTimeout РґР»СЏ alert, С‡С‚РѕР±С‹ РѕРЅ РЅРµ Р±Р»РѕРєРёСЂРѕРІР°Р» СЂРµРЅРґРµСЂРёРЅРі
+             setTimeout(() => {
+                  alert(`РРіСЂР° РѕРєРѕРЅС‡РµРЅР°! Р’Р°С€ СЃС‡С‘С‚: ${score}`);
+             }, 50); 
+        } else {
+            console.log("Game Over check returned false.");
+        }
+    };
+
+    if (clearedCellsCoords.length > 0) {
+        // Р•СЃР»Рё РµСЃС‚СЊ С‡С‚Рѕ РѕС‡РёС‰Р°С‚СЊ - Р·Р°РїСѓСЃРєР°РµРј Р°РЅРёРјР°С†РёСЋ
+        console.log(`Starting clearing animation for ${clearedCellsCoords.length} cells.`);
+        clearedCellsCoords.forEach(coord => {
+            const cellElement = gridContainer.querySelector(`[data-row='${coord.r}'][data-col='${coord.c}']`);
+            if (cellElement) {
+                 // РЈР±РµРґРёРјСЃСЏ С‡С‚Рѕ Сѓ СЏС‡РµР№РєРё РµСЃС‚СЊ С†РІРµС‚ РїРµСЂРµРґ Р°РЅРёРјР°С†РёРµР№
+                 // (Р­С‚Рѕ РЅСѓР¶РЅРѕ РµСЃР»Рё renderGrid РЅРµ Р±С‹Р» РІС‹Р·РІР°РЅ РїРѕСЃР»Рµ placeBlock)
+                 // cellElement.style.backgroundColor = grid[coord.r][coord.c] || var(--cell-bg-color); // РЈР¶Рµ РЅРµ РЅСѓР¶РЅРѕ, С‚.Рє. grid РѕС‡РёС‰РµРЅ
+                 cellElement.classList.add('clearing');
+            }
+        });
+
+        // РџРѕСЃР»Рµ Р°РЅРёРјР°С†РёРё РѕР±РЅРѕРІР»СЏРµРј СЃС‡РµС‚, UI Рё Р·Р°РїСѓСЃРєР°РµРј РїСЂРѕРІРµСЂРєРё
+        setTimeout(() => {
+            console.log("Clearing animation finished.");
+            renderGrid(); // РћР±РЅРѕРІР»СЏРµРј СЃРµС‚РєСѓ, С‡С‚РѕР±С‹ РїРѕРєР°Р·Р°С‚СЊ РїСѓСЃС‚С‹Рµ СЏС‡РµР№РєРё
+            updateScore(score + clearedCellsCoords.length * 100); 
+            // РЈРґР°Р»СЏРµРј РєР»Р°СЃСЃ Р°РЅРёРјР°С†РёРё
+            document.querySelectorAll('.grid-cell.clearing').forEach(cell => cell.classList.remove('clearing'));
+            
+            runPostPlacementChecks(); // Р—Р°РїСѓСЃРєР°РµРј РїСЂРѕРІРµСЂРєРё Р·РґРµСЃСЊ
+
+        }, 300); // Р”Р»РёС‚РµР»СЊРЅРѕСЃС‚СЊ Р°РЅРёРјР°С†РёРё
+
+    } else {
+        // Р•СЃР»Рё РЅРёС‡РµРіРѕ РЅРµ РѕС‡РёС‰РµРЅРѕ, СЃСЂР°Р·Сѓ Р·Р°РїСѓСЃРєР°РµРј РїСЂРѕРІРµСЂРєРё
+        console.log("No lines cleared, running checks immediately.");
+        runPostPlacementChecks();
+    }
 } 
